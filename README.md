@@ -57,3 +57,54 @@ This project aims to develop a web application that helps users prepare for Code
   - Defined `Submission.js` schema:
     - Fields: `practiceContest`, `user`, `problem`, `code`, `language`, `verdict`, `solveTimeSeconds`, `editorialAccessBeforeSubmit`.
     - Features: References to `PracticeContest`, `User`, `Problem`, indexed fields for querying, `timestamps`.
+
+### Day 2: Backend Server Setup, Authentication, and User Management APIs
+
+- **Server Configuration**:
+  - Created `server.js` to initialize an Express server:
+    - Configured `dotenv` to load environment variables (e.g., `PORT`, `MONGODB_URI`).
+    - Enabled CORS with `cors()` for cross-origin requests and `express.json()` for JSON body parsing.
+    - Defined a root route (`GET /`) for API health checks.
+    - Started the server on a configurable port (default: 5000) with detailed startup logs.
+    - Added unhandled promise rejection handling for robust error management.
+- **MongoDB Connection**:
+  - Developed `config/mongodb.js` to connect to MongoDB Atlas using `mongoose`:
+    - Used `process.env.MONGODB_URI` for secure database access.
+    - Configured connection options (`useNewUrlParser`, `useUnifiedTopology`) for compatibility.
+    - Implemented error handling with `try-catch`, exiting on connection failure.
+- **Authentication APIs**:
+  - Created `controllers/authController.js` with functions:
+    - `register`: Validates `codeforcesHandle`, `email`, and `password`; checks for duplicates; fetches Codeforces data via `codeforcesService`; hashes passwords with `bcryptjs`; saves users; and returns a JWT token.
+    - `login`: Authenticates users by `email` or `codeforcesHandle` and `password` using `bcrypt.compare`, returning a JWT token.
+    - `getUser`: Retrieves authenticated user data (excluding password) using `req.user.id` from JWT middleware.
+    - `logout`: Confirms logout (token expiration handled client-side via `localStorage` removal).
+  - Developed `routes/auth.routes.js` to define endpoints:
+    - `POST /api/auth/register`: User registration.
+    - `POST /api/auth/login`: User login.
+    - `GET /api/auth/user`: Fetch authenticated user data (protected).
+    - `POST /api/auth/logout`: Logout (protected).
+- **User Management APIs**:
+  - Created `controllers/userController.js` with functions:
+    - `getProfile`: Fetches user profile by `codeforcesHandle`, merging local data with Codeforces API data if available.
+    - `updateProfile`: Updates authenticated user’s `email`, `name`, `bio`, or `country`, validating email uniqueness.
+    - `getCFStats`: Retrieves and syncs Codeforces stats for the authenticated user, updating local database if ratings change.
+    - `getPracticeHistory`: Fetches the user’s practice contest history, populating problem and contest details.
+  - Developed `routes/user.routes.js` to define endpoints:
+    - `GET /api/users/profile/:codeforcesHandle`: Public profile retrieval.
+    - `PUT /api/users/profile`: Update authenticated user’s profile (protected).
+    - `GET /api/users/me/cf-stats`: Fetch Codeforces stats (protected).
+    - `GET /api/users/me/practice-history`: Fetch practice contest history (protected).
+- **Authentication Middleware**:
+  - Created `middlewares/authMiddleware.js` to protect routes:
+    - Verified JWT tokens from request headers using `jsonwebtoken`.
+    - Attached `req.user` with decoded user data (`id`) for protected routes.
+    - Handled token errors (e.g., invalid, expired) with specific status codes and messages.
+- **Codeforces API Integration**:
+  - Developed `services/codeforcesService.js` to interact with the Codeforces API:
+    - Configured an `axios` instance with a 5-second timeout and `CODEFORCES_API_URL` from `.env`.
+    - Implemented retry logic for API calls with exponential backoff to handle rate limits (HTTP 429).
+    - Created `getUserInfo` to fetch user data by handle, parsing Codeforces API responses.
+- **Route Integration**:
+  - Mounted routes in `server.js`:
+    - `authRouter` at `/api/auth` for authentication endpoints.
+    - `userRouter` at `/api/users` for user management endpoints.
