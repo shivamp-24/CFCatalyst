@@ -108,3 +108,34 @@ This project aims to develop a web application that helps users prepare for Code
   - Mounted routes in `server.js`:
     - `authRouter` at `/api/auth` for authentication endpoints.
     - `userRouter` at `/api/users` for user management endpoints.
+
+### Day 3: Problem Management APIs and Admin Access Control
+
+- **Dependency Installation**:
+  - Installed `express-rate-limit` (`npm install express-rate-limit`) to implement rate limiting for Codeforces API-dependent endpoints, preventing abuse and managing request volume.
+- **Problem Management APIs**:
+  - Created `controllers/problemController.js` with functions:
+    - `getProblems`: Retrieves problems from MongoDB with filtering (e.g., `tags`, `minRating`, `maxRating`, `contestId`) and pagination, sorting by `contestId` (descending) and `index` (ascending).
+    - `getProblem`: Fetches a specific problem by `problemId` (e.g., `1800C1`) from the database.
+    - `syncProblems`: Initiates problem synchronization with the Codeforces API via `codeforcesService`, restricted to admins.
+  - Developed `routes/problem.routes.js` to define endpoints:
+    - `GET /api/problems`: Retrieves filtered problems (protected by `authMiddleware`).
+    - `GET /api/problems/:problemId`: Fetches a specific problem (protected by `authMiddleware`).
+    - `POST /api/problems/sync`: Syncs problems from Codeforces API (protected by `authMiddleware`, `adminMiddleware`, `codeforcesApiLimiter`).
+  - Integrated `problemRouter` in `server.js` with `app.use("/api/problems", problemRouter)`.
+- **Admin Access Control**:
+  - Created `middlewares/adminMiddleware.js` to restrict routes to users with `role: "admin"`:
+    - Verified `req.user.id` from JWT middleware and checked the user’s `role` in MongoDB.
+    - Returned appropriate error responses for unauthorized or missing users.
+  - Updated `models/User.js` to add a `role` field:
+    - Type: `String`, `enum: ["user", "admin"]`, `default: "user"`.
+  - Modified `controllers/userController.js` to support `role` updates in `updateProfile` if provided in `req.body`, ensuring admin-only fields are controlled.
+- **Codeforces API Enhancements**:
+  - Updated `services/codeforcesService.js` with new functions:
+    - `getProblemsetProblems`: Fetches problems and statistics from Codeforces API’s `/problemset.problems` endpoint.
+    - `syncProblems`: Synchronizes problems to MongoDB using `bulkWrite` with `upsert`, mapping Codeforces data (e.g., `problemId`, `tags`, `solvedCount`) and tracking new/updated documents.
+  - Refactored problem synchronization logic from `problemController.js` to `codeforcesService.js` for modularity and cleaner controller code.
+- **Rate Limiting**:
+  - Created `middlewares/codeforcesApiLimiter.js` using `express-rate-limit`:
+    - Limited requests to 5 per 5-minute window for Codeforces API-dependent endpoints (e.g., `/api/problems/sync`).
+    - Provided clear error messages and rate limit headers for client feedback.

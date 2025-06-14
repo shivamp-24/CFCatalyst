@@ -46,7 +46,7 @@ const getProfile = async (req, res) => {
 // @desc    Update authenticated user's profile
 // @route   PUT /api/users/profile
 const updateProfile = async (req, res) => {
-  const { email, name, bio, country } = req.body;
+  const { email, name, bio, country, role } = req.body;
   const userId = req.user.id; // From authMiddleware
 
   try {
@@ -82,6 +82,10 @@ const updateProfile = async (req, res) => {
 
     if (country) {
       user.country = country;
+    }
+
+    if (role) {
+      user.role = role;
     }
 
     const updatedUser = await user.save();

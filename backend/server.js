@@ -7,6 +7,7 @@ dotenv.config();
 // Import Routes
 const authRouter = require("./routes/auth.routes");
 const userRouter = require("./routes/user.routes");
+const problemRouter = require("./routes/problem.routes");
 
 const app = express();
 
@@ -21,6 +22,7 @@ app.use(express.json()); // Body Parser Middleware to handle JSON request bodies
 // Routes
 app.use("/api/auth", authRouter);
 app.use("/api/users", userRouter);
+app.use("/api/problems", problemRouter);
 
 // Basic Root Route for testing if server is up
 app.get("/", (req, res) => {
