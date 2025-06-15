@@ -1,5 +1,6 @@
 const axios = require("axios");
 const Problem = require("../models/Problem");
+const Contest = require("../models/Contest");
 
 // Configure axios instance with timeout and rate limit handling
 const apiClient = axios.create({
@@ -117,4 +118,102 @@ const syncProblems = async () => {
   }
 };
 
-module.exports = { getUserInfo, getProblemsetProblems, syncProblems };
+// Fetch contest list (contest.list)
+const getContestList = async (gym = false) => {
+  return retry(async () => {
+    const response = await apiClient.get(`/contest.list?gym=${gym}`);
+    if (response.data.status !== "OK") {
+      throw new Error(
+        `Codeforces API error for contest.list: ${response.data.comment}`
+      );
+    }
+
+    return response.data.result;
+  });
+};
+
+// Sync contests from contest.list to MongoDB
+const syncContests = async (req, res) => {
+  try {
+    // Fetch regular and gym contests
+    const regularContests = await getContestList(false);
+    const gymContests = await getContestList(true);
+    const cfContestList = [...regularContests, ...gymContests];
+
+    if (!cfContestList || cfContestList.length === 0) {
+      throw new Error("No contests returned from Codeforces API");
+    }
+
+    const operations = cfContestList.map((cfContest) => {
+      const filter = { contestId: cfContest.id };
+      const update = {
+        contestId: cfContest.id,
+        name: cfContest.name,
+        type: cfContest.type || "CF",
+        phase: cfContest.phase || "FINISHED",
+        durationSeconds: cfContest.durationSeconds || 0,
+        startTimeSeconds: cfContest.startTimeSeconds || 0,
+        frozen: cfContest.frozen || false,
+        relativeTimeSeconds: cfContest.relativeTimeSeconds,
+        preparedBy: cfContest.preparedBy,
+        websiteUrl: cfContest.websiteUrl,
+        description: cfContest.description,
+        difficulty: cfContest.difficulty,
+        kind: cfContest.kind,
+        icpcRegion: cfContest.icpcRegion,
+        country: cfContest.country,
+        city: cfContest.city,
+        season: cfContest.season,
+      };
+
+      // Remove undefined fields to avoid setting null
+      Object.keys(update).forEach(
+        (key) => update[key] === undefined && delete update[key]
+      );
+
+      return {
+        updateOne: {
+          filter,
+          update: { $set: update },
+          upsert: true,
+        },
+      };
+    });
+
+    let newContestsCount = 0;
+    let updatedContestsCount = 0;
+
+    if (operations.length > 0) {
+      const result = await Contest.bulkWrite(operations, { ordered: false });
+      newContestsCount = result.upsertedCount || 0;
+      updatedContestsCount = result.modifiedCount || 0;
+    }
+
+    // Link problems to contests
+    for (const cfContest of cfContestList) {
+      const contestProblems = await Problem.find({ contestId: cfContest.id });
+      if (contestProblems.length > 0) {
+        await Contest.updateOne(
+          { contestId: cfContest.id },
+          { $set: { problems: contestProblems.map((p) => p._id) } }
+        );
+      }
+    }
+
+    return {
+      newContestsCount,
+      updatedContestsCount,
+      totalContestsProcessed: cfContestList.length,
+    };
+  } catch (error) {
+    throw new Error(`Failed to sync contests: ${error.message}`);
+  }
+};
+
+module.exports = {
+  getUserInfo,
+  getProblemsetProblems,
+  syncProblems,
+  getContestList,
+  syncContests,
+};

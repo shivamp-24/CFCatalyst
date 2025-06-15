@@ -6,10 +6,12 @@ const contestSchema = new mongoose.Schema(
       type: Number,
       required: true,
       unique: true,
+      index: true, // Good for lookups
     },
     name: {
       type: String,
       required: true,
+      trim: true,
     },
     type: {
       type: String,
@@ -27,6 +29,10 @@ const contestSchema = new mongoose.Schema(
       ],
       required: true,
     },
+    frozen: {
+      type: Boolean,
+      default: false,
+    },
     startTimeSeconds: {
       // Unix timestamp for contest start
       type: Number,
@@ -36,6 +42,44 @@ const contestSchema = new mongoose.Schema(
       // Duration of the contest in seconds
       type: Number,
       required: true,
+    },
+    relativeTimeSeconds: {
+      type: Number,
+    },
+    preparedBy: {
+      type: String,
+      trim: true,
+    },
+    websiteUrl: {
+      type: String,
+      trim: true,
+    },
+    description: {
+      type: String,
+      trim: true,
+    },
+    difficulty: {
+      type: Number, // From CF API: difficulty (1-5)
+    },
+    kind: {
+      type: String,
+      trim: true,
+    },
+    icpcRegion: {
+      type: String,
+      trim: true,
+    },
+    country: {
+      type: String,
+      trim: true,
+    },
+    city: {
+      type: String,
+      trim: true,
+    },
+    season: {
+      type: String,
+      trim: true,
     },
     problems: [
       // Array of references to Problem documents

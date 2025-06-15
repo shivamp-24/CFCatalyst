@@ -139,3 +139,36 @@ This project aims to develop a web application that helps users prepare for Code
   - Created `middlewares/codeforcesApiLimiter.js` using `express-rate-limit`:
     - Limited requests to 5 per 5-minute window for Codeforces API-dependent endpoints (e.g., `/api/problems/sync`).
     - Provided clear error messages and rate limit headers for client feedback.
+
+### Day 4: Contest Management APIs and Practice Contest Endpoints
+
+- **Contest Management APIs**:
+  - Created `controllers/contestController.js` with functions:
+    - `getContests`: Retrieves contests from MongoDB with filtering (e.g., `phase`, `type`) and pagination, supporting sorting by fields like `startTimeSeconds` (default: descending). Populates `problems` for related data.
+    - `getContest`: Fetches a specific contest by `contestId`, validating numeric format and populating `problems`.
+    - `syncContests`: Initiates contest synchronization with the Codeforces API via `codeforcesService`, restricted to admins.
+  - Developed `routes/contest.routes.js` to define endpoints:
+    - `GET /api/contests`: Retrieves filtered contests (protected by `authMiddleware`).
+    - `GET /api/contests/:contestId`: Fetches a specific contest (protected by `authMiddleware`).
+    - `POST /api/contests/sync`: Syncs contests from Codeforces API (protected by `authMiddleware`, `adminMiddleware`, `codeforcesApiLimiter`).
+  - Integrated `contestRouter` in `server.js` with `app.use("/api/contests", contestRouter)`.
+- **Practice Contest Endpoints**:
+  - Created `routes/practiceContest.routes.js` to define endpoints for practice contest management:
+    - `POST /api/practiceContests/generate`: Generates a new practice contest.
+    - `GET /api/practiceContests/:practiceContestId`: Retrieves a specific practice contest.
+    - `POST /api/practiceContests/:practiceContestId/start`: Starts a practice contest.
+    - `POST /api/practiceContests/:practiceContestId/complete`: Completes a practice contest.
+    - `PUT /api/practiceContests/:practiceContestId/problems/:problemObjectId/editorial`: Flags editorial access for a problem.
+    - `GET /api/practiceContests/:practiceContestId/leaderboard`: Fetches the leaderboard for a practice contest.
+    - `GET /api/practiceContests/me`: Retrieves the authenticated user’s practice contests.
+  - All endpoints are protected by `authMiddleware` for authenticated access.
+- **Contest Model Enhancement**:
+  - Updated `models/Contest.js` to include additional fields for richer metadata:
+    - `frozen`, `relativeTimeSeconds`, `preparedBy`, `websiteUrl`, `description`, `difficulty`, `kind`, `icpcRegion`, `country`, `city`, `season`.
+    - Added `index: true` on `contestId` for efficient lookups and `trim: true` on string fields for data consistency.
+- **Codeforces API Enhancements**:
+  - Updated `services/codeforcesService.js` with new functions:
+    - `getContestList`: Fetches regular and gym contests from Codeforces API’s `/contest.list` endpoint, supporting `gym` parameter.
+    - `syncContests`: Synchronizes contests to MongoDB using `bulkWrite` with `upsert`, mapping Codeforces data (e.g., `contestId`, `name`, `problems`) and linking problems to contests via `updateOne`.
+  - Refactored contest synchronization logic from `contestController.js` to `codeforcesService.js` for modularity and cleaner controller code.
+  - Ensured undefined fields are removed during updates to prevent null values in MongoDB.
