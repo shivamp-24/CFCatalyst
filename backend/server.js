@@ -9,6 +9,7 @@ const authRouter = require("./routes/auth.routes");
 const userRouter = require("./routes/user.routes");
 const problemRouter = require("./routes/problem.routes");
 const contestRouter = require("./routes/contest.routes");
+const practiceContestRouter = require("./routes/practiceContest.routes");
 
 const app = express();
 
@@ -25,6 +26,7 @@ app.use("/api/auth", authRouter);
 app.use("/api/users", userRouter);
 app.use("/api/problems", problemRouter);
 app.use("/api/contests", contestRouter);
+app.use("/api/practice-contests", practiceContestRouter);
 
 // Basic Root Route for testing if server is up
 app.get("/", (req, res) => {

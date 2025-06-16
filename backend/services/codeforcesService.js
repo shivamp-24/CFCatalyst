@@ -5,7 +5,7 @@ const Contest = require("../models/Contest");
 // Configure axios instance with timeout and rate limit handling
 const apiClient = axios.create({
   baseURL: process.env.CODEFORCES_API_URL,
-  timeout: 5000, // 5 seconds timeout
+  timeout: 30 * 1000, // 30 seconds timeout
 });
 
 //Retry Logic for API Calls

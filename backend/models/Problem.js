@@ -7,10 +7,12 @@ const problemSchema = new mongoose.Schema(
       type: String,
       required: true,
       unique: true, // Important for preventing duplicate problems
+      index: true,
     },
     contestId: {
       type: Number,
       required: true,
+      index: true
     },
     name: {
       type: String,

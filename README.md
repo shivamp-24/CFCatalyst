@@ -172,3 +172,41 @@ This project aims to develop a web application that helps users prepare for Code
     - `syncContests`: Synchronizes contests to MongoDB using `bulkWrite` with `upsert`, mapping Codeforces data (e.g., `contestId`, `name`, `problems`) and linking problems to contests via `updateOne`.
   - Refactored contest synchronization logic from `contestController.js` to `codeforcesService.js` for modularity and cleaner controller code.
   - Ensured undefined fields are removed during updates to prevent null values in MongoDB.
+
+### Day 5: Practice Contest Management APIs and Supporting Enhancements
+
+- **Practice Contest APIs**:
+
+  - Created `controllers/practiceContestController.js` to manage practice contest functionality:
+    - `generatePracticeContest`: Generates a new practice contest based on user inputs (`contestType`, `minRating`, `maxRating`, `tags`, `problemCount`, `durationMinutes`). Validates inputs, fetches problems using `problemSelection.selectProblems`, saves the contest with `PENDING` status, and updates the user’s `practiceContestHistory`. Returns populated contest data with user and problem details.
+    - `getPracticeContest`: Retrieves a specific practice contest by `practiceContestId`, ensuring the requesting user is the owner. Populates user and problem details for the response.
+    - `startPracticeContest`: Starts a practice contest, transitioning its status from `PENDING` to `ONGOING`, setting `startTime` and `endTime` based on `durationMinutes`. Validates user ownership and contest status.
+    - `completePracticeContest`: Completes a practice contest, updating its status to `COMPLETED` and setting `endTime` to the current time if completed early. Processes `problemSolutions` to update `solved` status and `userSolveTimeSeconds`, calculates `userPerformanceRating` and `userRatingChange` using `ratingCalculation`, and generates a single-user leaderboard with score and penalty.
+    - `flagEditorialAccess`: Flags editorial access for a specific problem in a practice contest, updating `editorialAccessed` to `true` for penalty tracking.
+    - `getLeaderboard`: Retrieves the leaderboard for a practice contest. If no leaderboard exists, generates a default one based on solved problems and solve times. Populates user details for display.
+    - `getUserPracticeContests`: Fetches all practice contests for the authenticated user with pagination and optional `status` filtering. Sorts by creation date (descending) and populates basic problem details.
+  - Integrated utility functions:
+    - Used `problemSelection.selectProblems` (placeholder) for problem selection logic.
+    - Used `ratingCalculation.calculatePerformanceRating` and `ratingCalculation.calculateRatingChange` (placeholders) for rating computations.
+  - Defined routes in `routes/practiceContest.routes.js` (previously created on Day 4) and mounted them in `server.js` with `app.use("/api/practice-contests", practiceContestRouter)`.
+
+- **Model Enhancements**:
+
+  - Updated `models/Problem.js` to improve query performance:
+    - Added `index: true` to `contestId` and `problemId` fields to optimize population during contest synchronization and practice contest problem retrieval.
+
+- **Codeforces API Enhancements**:
+
+  - Modified `services/codeforcesService.js` to handle longer API operations:
+    - Increased the `axios` client timeout from 5 seconds to 30 seconds to accommodate slower responses during contest synchronization (`syncContests`).
+
+- **Utility Setup**:
+
+  - Created a `utils/` directory to house reusable logic:
+    - Planned `problemSelection.js` for problem selection based on user handle, contest type, rating range, and tags (logic pending).
+    - Planned `ratingCalculation.js` for performance rating and rating change calculations (logic pending).
+
+- **Server Configuration**:
+  - Updated `server.js` to include the practice contest router:
+    - Imported `practiceContestRouter` from `routes/practiceContest.routes.js`.
+    - Mounted it at `/api/practice-contests` for handling practice contest-related endpoints.
