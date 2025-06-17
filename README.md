@@ -210,3 +210,52 @@ This project aims to develop a web application that helps users prepare for Code
   - Updated `server.js` to include the practice contest router:
     - Imported `practiceContestRouter` from `routes/practiceContest.routes.js`.
     - Mounted it at `/api/practice-contests` for handling practice contest-related endpoints.
+
+### Day 6: Problem Selection Logic, Contest Analysis, and Model Enhancements
+
+- **Problem Selection Logic**:
+
+  - Created `utils/problemSelection.js` to implement problem selection for practice contests:
+    - Defined `selectProblems` function to select problems based on `userCodeforcesHandle`, `generationMode` (`GENERAL`, `USER_TAGS`, `WEAK_TOPIC`, `CONTEST_SIMULATION`), `problemCount`, `userMinRating`, `userMaxRating`, `userSpecifiedTags`, and `targetContestFormat`.
+    - Features:
+      - Validates inputs and derives effective rating ranges based on user rating (from Codeforces API) or defaults (`800-1400` for unrated users).
+      - Excludes solved problems using `codeforcesService.getUserSolvedProblemIds`.
+      - Supports mode-specific logic:
+        - `GENERAL`: Selects problems within rating range without tag filters.
+        - `USER_TAGS`: Filters by user-provided tags and rating range.
+        - `WEAK_TOPIC`: Targets user’s weak tags (via `contestAnalysisService.identifyUserWeakTags`) and rating range.
+        - `CONTEST_SIMULATION`: Mimics contest format using `contestAnalysisService.getContestProfile`, selecting problems by index-specific ratings and tags with fallback to general mode if profile is insufficient.
+      - Uses MongoDB aggregation with `$sample` for random problem selection.
+      - Returns detailed `selectionResult` with selected problems, effective ratings, and mode-specific metadata (e.g., weak tags, contest profile).
+    - Configured constants for rating windows, tag limits, and fallback behaviors to ensure robust problem selection.
+
+- **Contest Analysis Service**:
+
+  - Created `services/contestAnalysisService.js` to support advanced problem selection:
+    - `identifyUserWeakTags`: Analyzes user submissions (via `codeforcesService.getUserSubmissions`) to identify tags of attempted but unsolved problems, sorted by frequency. Uses local `Problem` model for tag data.
+    - `getContestProfile`: Generates a profile for a `targetContestFormat` (e.g., `Div. 2`) by analyzing up to 50 recent finished contests. Computes average rating per problem index, overall common tags, and index-specific tags. Filters contests with at least 3 problems for reliability.
+    - Integrated with `codeforcesService` and `Problem`/`Contest` models for data retrieval and processing.
+
+- **Practice Contest Controller Updates**:
+
+  - Modified `controllers/practiceContestController.js` to enhance `generatePracticeContest`:
+    - Updated input parameters to support `generationMode` (`GENERAL`, `USER_TAGS`, `WEAK_TOPIC`, `CONTEST_SIMULATION`), `userMinRating`, `userMaxRating`, `userSpecifiedTags`, `problemCount`, `durationMinutes`, and `targetContestFormat`.
+    - Enhanced validation for mode-specific requirements (e.g., `targetContestFormat` for `CONTEST_SIMULATION`).
+    - Integrated with `problemSelection.selectProblems` to fetch problems, storing detailed `contestTypeParams` (e.g., effective ratings, tags, simulation profile) in the `PracticeContest` model.
+    - Improved error handling to propagate `problemSelection` errors and provide user-friendly messages.
+    - Updated user’s `practiceContestHistory` with null checks for robustness.
+
+- **Model Enhancements**:
+
+  - Updated `models/Contest.js` to include a new field:
+    - `formatCategory`: `String` field with values like `Div. 1`, `Div. 2`, `Div. 3`, `Div. 4`, `Educational`, `Global`, etc. Added `index: true` for efficient querying during contest analysis and simulation.
+
+- **Codeforces API Enhancements**:
+  - Modified `services/codeforcesService.js` to support contest analysis and problem selection:
+    - Added `getUserSubmissions`: Fetches up to 20,000 submissions for a user from Codeforces API’s `/user.status` endpoint with retry logic.
+    - Added `getUserSolvedProblemIds`: Extracts unique solved problem IDs from submissions with `OK` verdict.
+    - Added `categorizeContestName`: Helper function to classify contest names into categories (e.g., `Div. 2`, `Educational Div. 2`, `ICPC`) based on naming patterns for `formatCategory`.
+    - Updated `syncContests`:
+      - Populates `formatCategory` using `categorizeContestName`.
+      - Optimized problem linking to avoid unnecessary updates by comparing existing `problems` array before writing.
+      - Added detailed logging for debugging and performance tracking.

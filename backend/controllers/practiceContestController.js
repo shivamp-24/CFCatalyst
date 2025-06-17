@@ -7,80 +7,168 @@ const ratingCalculation = require("../utils/ratingCalculation");
 // @route   POST /api/practice-contests/generate
 const generatePracticeContest = async (req, res) => {
   const {
-    contestType,
-    minRating,
-    maxRating,
-    tags,
+    generationMode, // "GENERAL", "USER_TAGS", "WEAK_TOPIC", "CONTEST_SIMULATION"
+    userMinRating: rawUserMinRating,
+    userMaxRating: rawUserMaxRating,
+    userSpecifiedTags,
     problemCount = 5,
     durationMinutes = 120, // Default duration
+    targetContestFormat, // "Div. 2", "Div. 3", "Div. 4", "Educational Div.2" - for CONTEST_SIMULATION mode
   } = req.body;
 
   try {
     // Validate input
-    if (
-      !contestType ||
-      !minRating ||
-      !maxRating ||
-      problemCount < 1 ||
-      problemCount > 10
-    ) {
-      return res.status(400).json({ message: "Invalid contest parameters" });
+    if (!generationMode) {
+      return res.status(400).json({ message: "generationMode is required." });
     }
-    if (minRating > maxRating) {
+
+    const numProblemCount = parseInt(problemCount);
+    if (
+      isNaN(numProblemCount) ||
+      numProblemCount <= 0 ||
+      numProblemCount > 10
+    ) {
+      return res.status(400).json({
+        message: "problemCount must be a positive number between 1 and 10.",
+      });
+    }
+
+    const parsedUserMinRating = rawUserMinRating
+      ? parseInt(rawUserMinRating)
+      : undefined;
+    const parsedUserMaxRating = rawUserMaxRating
+      ? parseInt(rawUserMaxRating)
+      : undefined;
+
+    if (
+      parsedUserMinRating !== undefined &&
+      parsedUserMaxRating !== undefined &&
+      parsedUserMinRating > parsedUserMaxRating
+    ) {
       return res
         .status(400)
-        .json({ message: "minRating cannot exceed maxRating" });
+        .json({ message: "userMinRating cannot exceed userMaxRating." });
+    }
+    if (
+      generationMode.toUpperCase() === "CONTEST_SIMULATION" &&
+      !targetContestFormat
+    ) {
+      return res.status(400).json({
+        message: "targetContestFormat is required for CONTEST_SIMULATION mode.",
+      });
     }
 
     //check if user exists and then, populate practiceContestHistory
     const user = await User.findById(req.user.id);
-    if (!user) return res.status(404).json({ message: "User not found!" });
+    if (!user || !user.codeforcesHandle) {
+      return res
+        .status(404)
+        .json({ message: "User not found or Codeforces handle is missing." });
+    }
 
-    //fetch the problems from logic in problemSelection
-    const problems = await problemSelection.selectProblems(
+    // fetch the problems from logic in problemSelection
+    const selectionResult = await problemSelection.selectProblems(
       user.codeforcesHandle,
-      contestType,
-      Number(minRating),
-      Number(maxRating),
-      tags,
-      Number(problemCount)
+      generationMode, // The mode requested by the user
+      numProblemCount,
+      parsedUserMinRating,
+      parsedUserMaxRating,
+      userSpecifiedTags,
+      targetContestFormat
     );
+
+    // Extract problems from the result
+    const selectedProblemsFromUtil = selectionResult.problems;
+
+    if (!selectedProblemsFromUtil || selectedProblemsFromUtil.length === 0) {
+      return res.status(404).json({
+        message:
+          "Could not find suitable problems matching your criteria. Please try adjusting.",
+      });
+    }
+
+    // Construct detailed contestTypeParams using details from selectionResult
+    const contestTypeParams = {
+      requestedGenerationMode: generationMode.toUpperCase(), // Mode user asked for
+      executedGenerationMode: selectionResult.generationModeUsed, // Mode actually run (could be fallback)
+      requestedProblemCount: numProblemCount,
+      actualProblemCount: selectedProblemsFromUtil.length,
+
+      // User's direct input for ratings
+      userProvidedMinRating: parsedUserMinRating,
+      userProvidedMaxRating: parsedUserMaxRating,
+
+      // Actual effective ratings used by problemSelection
+      effectiveMinRatingUsed: selectionResult.effectiveMinRatingUsed,
+      effectiveMaxRatingUsed: selectionResult.effectiveMaxRatingUsed,
+    };
+
+    // Add mode-specific details from selectionResult
+    if (selectionResult.userSpecifiedTagsUsed) {
+      contestTypeParams.userSpecifiedTags =
+        selectionResult.userSpecifiedTagsUsed;
+    }
+    if (selectionResult.targetedWeakTags) {
+      contestTypeParams.targetedWeakTags = selectionResult.targetedWeakTags;
+    }
+    if (selectionResult.generationModeUsed === "CONTEST_SIMULATION") {
+      contestTypeParams.targetContestFormatUsed =
+        selectionResult.targetContestFormatUsed;
+      if (selectionResult.profileDetails) {
+        contestTypeParams.simulationProfileSummary =
+          selectionResult.profileDetails;
+      }
+      if (selectionResult.wasFallbackToGeneralMode) {
+        contestTypeParams.simulationFellBackToGeneral = true;
+      }
+    }
 
     const practiceContest = new PracticeContest({
       user: req.user.id,
-      problems: problems.map((p) => ({
+      problems: selectedProblemsFromUtil.map((p) => ({
         problem: p._id,
       })),
       durationMinutes: parseInt(durationMinutes),
       status: "PENDING",
-      contestTypeParams: {
-        contestType,
-        minRating,
-        maxRating,
-        tags,
-        problemCount,
-      },
+      contestTypeParams,
     });
 
     await practiceContest.save();
 
-    //update user's practiceContestHistory
-    user.practiceContestHistory.push(practiceContest._id);
+    // Update user's practiceContestHistory
+    if (
+      user.practiceContestHistory &&
+      Array.isArray(user.practiceContestHistory)
+    ) {
+      user.practiceContestHistory.push(practiceContest._id);
+    } else {
+      user.practiceContestHistory = [practiceContest._id];
+    }
     await user.save();
 
     // Populate problem details for the response
     const populatedContest = await PracticeContest.findById(practiceContest._id)
       .populate("user", "codeforcesHandle name")
-      .populate(
-        "problems.problem",
-        "problemId name rating tags contestId index"
-      );
+      .populate({
+        path: "problems.problem",
+        select: "problemId name rating tags contestId index points",
+      });
 
-    res
-      .status(201)
-      .json({ message: "Practice contest generated", data: populatedContest });
+    res.status(201).json({
+      message: `Practice contest generated successfully with ${selectedProblemsFromUtil.length} problems.`,
+      data: populatedContest,
+    });
   } catch (error) {
-    console.error("Error generating practice contest:", error.message);
+    console.error(
+      "[generatePracticeContest] Error:",
+      error.message,
+      error.stack
+    );
+
+    // Send back the error message from problemSelection if it's one of ours
+    if (error.message.startsWith("[problemSelection]")) {
+      return res.status(400).json({ message: error.message });
+    }
     res.status(500).json({ message: "Failed to generate practice contest" });
   }
 };

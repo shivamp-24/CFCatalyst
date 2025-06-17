@@ -88,6 +88,11 @@ const contestSchema = new mongoose.Schema(
         ref: "Problem",
       },
     ],
+    formatCategory: {
+      type: String, //
+      type: String, // "Div. 1", Div. 2", "Div. 3", "Div. 4", "Educational", "Global", "Div. 1 + Div. 2", "ICPC", "Good Bye", "Hello", "Other"
+      index: true,
+    },
   },
   { timestamps: true }
 );
