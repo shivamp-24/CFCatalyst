@@ -2,6 +2,7 @@ const PracticeContest = require("../models/PracticeContest");
 const User = require("../models/User");
 const problemSelection = require("../utils/problemSelection");
 const ratingCalculation = require("../utils/ratingCalculation");
+const codeforcesService = require("../services/codeforcesService");
 
 // @desc    Generate a new practice contest
 // @route   POST /api/practice-contests/generate
@@ -501,6 +502,54 @@ const getUserPracticeContests = async (req, res) => {
   }
 };
 
+// @desc    Sync user's CF submissions with an ongoing practice contest
+// @route   POST /api/practice-contests/:practiceContestId/sync
+const syncPracticeContestSubmissions = async (req, res) => {
+  const { practiceContestId } = req.params;
+  const userId = req.user.id;
+
+  try {
+    const contest = await PracticeContest.findById(practiceContestId).populate(
+      "problems.problem"
+    );
+    if (!contest) {
+      return res.status(404).json({ message: "Practice contest not found." });
+    }
+    if (contest.status !== "ONGOING") {
+      return res
+        .status(400)
+        .json({ message: "Can only sync submissions for an ONGOING contest." });
+    }
+
+    const user = await User.findById(userId);
+    if (!user || !user.codeforcesHandle) {
+      return res
+        .status(404)
+        .json({ message: "User or Codeforces handle not found." });
+    }
+    if (contest.user.toString() !== userId) {
+      return res
+        .status(403)
+        .json({ message: "Not authorized to sync this contest." });
+    }
+
+    // Call the service function to do the heavy lifting
+    const syncResult =
+      await codeforcesService.syncSubmissionsForPracticeContest(
+        user.codeforcesHandle,
+        contest
+      );
+
+    res.status(200).json({
+      message: "Sync completed successfully.",
+      data: syncResult, // e.g., { newSubmissionsCount: 5, updatedProblemsCount: 2 }
+    });
+  } catch (error) {
+    console.error("Error syncing contest submissions:", error.message);
+    res.status(500).json({ message: "Server error during sync." });
+  }
+};
+
 module.exports = {
   generatePracticeContest,
   getPracticeContest,
@@ -509,4 +558,5 @@ module.exports = {
   flagEditorialAccess,
   getLeaderboard,
   getUserPracticeContests,
+  syncPracticeContestSubmissions,
 };

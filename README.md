@@ -259,3 +259,49 @@ This project aims to develop a web application that helps users prepare for Code
       - Populates `formatCategory` using `categorizeContestName`.
       - Optimized problem linking to avoid unnecessary updates by comparing existing `problems` array before writing.
       - Added detailed logging for debugging and performance tracking.
+
+### Day 7: Submission Management, Rating Calculation, and Codeforces API Authentication
+
+- **Submission Management APIs**:
+
+  - Created `controllers/submissionController.js` to handle submission retrieval:
+    - `getSubmissionsByContest`: Retrieves all submissions for a specific practice contest by the authenticated user, sorted by `createdAt` (descending). Populates problem details (`problemId`, `name`, `rating`, `index`).
+    - `getSubmissionsByProblem`: Fetches submissions for a specific problem within a practice contest by the authenticated user, sorted by `createdAt` (descending).
+  - Created `routes/submission.routes.js` to define submission endpoints:
+    - `GET /api/submissions/practice-contest/:practiceContestId`: Calls `getSubmissionsByContest`, protected by `authMiddleware`.
+    - `GET /api/submissions/problem/:problemId/practice-contest/:practiceContestId`: Calls `getSubmissionsByProblem`, protected by `authMiddleware`.
+  - Updated `server.js` to mount `submissionRouter` at `/api/submissions`.
+
+- **Practice Contest Submission Sync**:
+
+  - Added `syncPracticeContestSubmissions` to `controllers/practiceContestController.js`:
+    - New endpoint `POST /api/practice-contests/:practiceContestId/sync` to sync user’s recent Codeforces submissions with an ongoing practice contest.
+    - Validates contest existence, status (`ONGOING`), and user ownership.
+    - Calls `codeforcesService.syncSubmissionsForPracticeContest` to process submissions and returns sync results (e.g., new submissions count, updated problems count).
+  - Updated `routes/practiceContest.routes.js` to include the new route:
+    - `POST /:practiceContestId/sync` with `authMiddleware` and `syncPracticeContestSubmissions`.
+
+- **Codeforces API Authentication**:
+
+  - Created `config/codeforces.js` to centralize Codeforces API interactions:
+    - Implements `makeApiRequest` to handle authenticated requests using `apiKey` and `apiSecret` from `.env`. Generates `apiSig` with SHA-512 hashing for secure calls.
+    - Structures exports to mirror Codeforces API endpoints (e.g., `codeforces.user.status`, `codeforces.problemset.problems`).
+    - Supports unauthenticated calls if no key/secret provided.
+  - Generated Codeforces API key and secret, updated `.env` with `CODEFORCES_API_KEY` and `CODEFORCES_API_SECRET`.
+  - Modified `services/codeforcesService.js` to use `codeforces` module for API calls:
+    - Added `syncSubmissionsForPracticeContest` to fetch user’s last 50 submissions via `codeforces.user.status`. Matches submissions to contest problems, creates new `Submission` documents, and updates contest problems for `OK` verdicts with solve times. Uses `submissionCfId` for deduplication.
+
+- **Rating Calculation Logic**:
+
+  - Created `utils/ratingCalculation.js` to implement rating calculations:
+    - `calculatePerformanceRating`: Computes performance based on solved problems’ ratings with a speed bonus (up to 10% of problem rating) and full-solve bonus (10% multiplier). Returns lowest slot rating (90%) if no problems solved.
+    - `calculateRatingChange`: Simulates Codeforces-style rating updates using a virtual field of 100 participants (normal distribution, mean 1200, stddev 350). Computes expected rank, actual rank based on performance, and rating delta (clamped to [-100, +100]).
+  - Integrated with `practiceContestController.js` for `completePracticeContest` to update `userPerformanceRating` and `userRatingChange`.
+
+- **Model Enhancements**:
+
+  - Updated `models/Submission.js` to include a new field:
+    - `submissionCfId`: `Number` field to store Codeforces submission ID, with `index: true`, `unique: true`, and `sparse: true` for efficient deduplication during sync.
+
+- **Environment Configuration**:
+  - Updated `.env` to include `CODEFORCES_API_KEY` and `CODEFORCES_API_SECRET` for authenticated Codeforces API access.

@@ -10,6 +10,7 @@ const userRouter = require("./routes/user.routes");
 const problemRouter = require("./routes/problem.routes");
 const contestRouter = require("./routes/contest.routes");
 const practiceContestRouter = require("./routes/practiceContest.routes");
+const submissionRouter = require("./routes/submission.routes");
 
 const app = express();
 
@@ -27,6 +28,7 @@ app.use("/api/users", userRouter);
 app.use("/api/problems", problemRouter);
 app.use("/api/contests", contestRouter);
 app.use("/api/practice-contests", practiceContestRouter);
+app.use("/api/sunmissions", submissionRouter);
 
 // Basic Root Route for testing if server is up
 app.get("/", (req, res) => {

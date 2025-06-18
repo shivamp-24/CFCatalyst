@@ -38,5 +38,10 @@ practiceContestRouter.get(
   authMiddleware,
   practiceContestController.getUserPracticeContests
 );
+practiceContestRouter.post(
+  "/:practiceContestId/sync",
+  authMiddleware,
+  practiceContestController.syncPracticeContestSubmissions
+);
 
 module.exports = practiceContestRouter;

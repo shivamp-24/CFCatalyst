@@ -2,6 +2,12 @@ const mongoose = require("mongoose");
 
 const submissionSchema = new mongoose.Schema(
   {
+    submissionCfId: {
+      type: Number,
+      index: true,
+      unique: true,
+      sparse: true,
+    },
     practiceContest: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "PracticeContest",

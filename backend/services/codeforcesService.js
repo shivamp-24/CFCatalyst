@@ -1,6 +1,8 @@
 const axios = require("axios");
 const Problem = require("../models/Problem");
 const Contest = require("../models/Contest");
+const codeforces = require("../config/codeforces");
+const Submission = require("../models/Submission");
 
 // Configure axios instance with timeout and rate limit handling
 const apiClient = axios.create({
@@ -385,6 +387,86 @@ const getUserSolvedProblemIds = async (handle) => {
   return solvedProblemIds;
 };
 
+// Fetches user's recent submissions from Codeforces and syncs them with a practice contest.
+const syncSubmissionsForPracticeContest = async (
+  codeforcesHandle,
+  practiceContest
+) => {
+  // 1. Fetch user's last 50 submissions from Codeforces API
+  const cfSubmissionsResponse = await codeforces.user.status({
+    handle: codeforcesHandle,
+    from: 1,
+    count: 50, // A reasonable number to check for recent activity
+  });
+
+  if (!cfSubmissionsResponse || cfSubmissionsResponse.status !== "OK") {
+    throw new Error("Failed to fetch submissions from Codeforces API.");
+  }
+  const cfSubmissions = cfSubmissionsResponse.result;
+
+  // 2. Prepare for efficient matching
+  // Create a map of problem identifiers ('contestId-index') to the problem object in our contest
+  const contestProblemMap = new Map();
+  practiceContest.problems.forEach((p) => {
+    const problemIdentifier = `${p.problem.contestId}-${p.problem.index}`;
+    contestProblemMap.set(problemIdentifier, p);
+  });
+
+  let newSubmissionsCount = 0;
+  const updatedProblemIds = new Set();
+
+  // 3. Process submissions from oldest to newest to get the correct first solve time
+  for (const cfSub of cfSubmissions.reverse()) {
+    const problemIdentifier = `${cfSub.problem.contestId}-${cfSub.problem.index}`;
+
+    // Check if this submission is for a problem in our contest
+    if (contestProblemMap.has(problemIdentifier)) {
+      // Check if we have already synced this submission
+      const existingSubmission = await Submission.findOne({
+        submissionCfId: cfSub.id,
+      });
+
+      if (!existingSubmission) {
+        newSubmissionsCount++;
+        // This is a new, relevant submission. Let's save it.
+        const newDbSubmission = new Submission({
+          submissionCfId: cfSub.id,
+          practiceContest: practiceContest._id,
+          user: practiceContest.user,
+          problem: contestProblemMap.get(problemIdentifier).problem._id,
+          language: cfSub.programmingLanguage,
+          verdict: cfSub.verdict, // Store the raw CF verdict
+        });
+        await newDbSubmission.save();
+
+        // If it's an "OK" verdict, update the parent contest
+        if (cfSub.verdict === "OK") {
+          const problemInContest = contestProblemMap.get(problemIdentifier);
+          // Only update if it wasn't already marked as solved
+          if (!problemInContest.solved) {
+            problemInContest.solved = true;
+            const solveTime =
+              cfSub.creationTimeSeconds -
+              Math.floor(practiceContest.startTime.getTime() / 1000);
+            problemInContest.userSolveTimeSeconds = Math.max(0, solveTime); // Ensure not negative
+            updatedProblemIds.add(problemInContest.problem._id.toString());
+          }
+        }
+      }
+    }
+  }
+
+  // 4. Save the changes to the practice contest if any problems were updated
+  if (updatedProblemIds.size > 0) {
+    await practiceContest.save();
+  }
+
+  return {
+    newSubmissionsCount,
+    updatedProblemsCount: updatedProblemIds.size,
+  };
+};
+
 module.exports = {
   getUserInfo,
   getProblemsetProblems,
@@ -393,4 +475,5 @@ module.exports = {
   syncContests,
   getUserSubmissions,
   getUserSolvedProblemIds,
+  syncSubmissionsForPracticeContest,
 };
