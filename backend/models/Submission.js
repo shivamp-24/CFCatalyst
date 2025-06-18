@@ -34,14 +34,14 @@ const submissionSchema = new mongoose.Schema(
     },
     verdict: {
       type: String,
-      enum: [
-        "ACCEPTED",
-        "SOLVED_LOCALLY",
-        "WRONG_ANSWER",
-        "TIME_LIMIT_EXCEEDED",
-        "EDITORIAL USED",
-        "OTHER",
-      ],
+      // enum: [
+      //   "ACCEPTED",
+      //   "SOLVED_LOCALLY",
+      //   "WRONG_ANSWER",
+      //   "TIME_LIMIT_EXCEEDED",
+      //   "EDITORIAL USED",
+      //   "OTHER",
+      // ],
     },
     solveTimeSeconds: {
       type: Number,

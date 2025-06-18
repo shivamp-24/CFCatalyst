@@ -323,6 +323,7 @@ const completePracticeContest = async (req, res) => {
     // calculate performanceRating and ratingChange of user
     contest.userPerformanceRating =
       ratingCalculation.calculatePerformanceRating(contest);
+
     contest.userRatingChange = ratingCalculation.calculateRatingChange(
       contest.userPerformanceRating,
       contest.contestTypeParams

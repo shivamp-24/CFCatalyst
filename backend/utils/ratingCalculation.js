@@ -34,7 +34,7 @@ function calculatePerformanceRating(contest) {
   if (problemsSolved == 0) {
     // If nothing solved, base performance on lowest slot
     const minRating = contest.problems
-      .map((p) => (p.problem && pr.problem.rating ? p.problem.rating : 800))
+      .map((p) => (p.problem && p.problem.rating ? p.problem.rating : 800))
       .reduce((a, b) => Math.min(a, b), 800);
 
     return Math.max(800, Math.round(minRating * 0.9));
@@ -86,8 +86,9 @@ function calculateExpectedRank(userRating, fieldRatings) {
 function findPerformanceRating(fieldRatings, actualRank) {
   let low = 800,
     high = 3500,
-    mid;
-  while (low <= high) {
+    mid,
+    eps = 1e-6;
+  while (high - low > eps) {
     mid = (low + high) / 2;
     let seed = calculateExpectedRank(mid, fieldRatings);
     if (seed < actualRank) {
@@ -98,7 +99,7 @@ function findPerformanceRating(fieldRatings, actualRank) {
       low = mid;
     }
   }
-  return Math.round(left);
+  return Math.round(low);
 }
 
 // Main rating update: Codeforces-style for virtual field

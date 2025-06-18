@@ -31,7 +31,7 @@ const getSubmissionsByContest = async (req, res) => {
 // @route   GET /api/submissions/problem/:problemId/practice-contest/:practiceContestId
 const getSubmissionsByProblem = async (req, res) => {
   const { problemId, practiceContestId } = req.params;
-  const userId = req.params.id;
+  const userId = req.user.id;
 
   try {
     const submissions = await Submission.find({

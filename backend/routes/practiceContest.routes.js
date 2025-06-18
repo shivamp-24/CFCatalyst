@@ -9,6 +9,11 @@ practiceContestRouter.post(
   practiceContestController.generatePracticeContest
 );
 practiceContestRouter.get(
+  "/me",
+  authMiddleware,
+  practiceContestController.getUserPracticeContests
+);
+practiceContestRouter.get(
   "/:practiceContestId",
   authMiddleware,
   practiceContestController.getPracticeContest
@@ -32,11 +37,6 @@ practiceContestRouter.get(
   "/:practiceContestId/leaderboard",
   authMiddleware,
   practiceContestController.getLeaderboard
-);
-practiceContestRouter.get(
-  "/me",
-  authMiddleware,
-  practiceContestController.getUserPracticeContests
 );
 practiceContestRouter.post(
   "/:practiceContestId/sync",

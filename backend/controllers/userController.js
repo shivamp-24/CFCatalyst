@@ -163,7 +163,7 @@ const getPracticeHistory = async (req, res) => {
     })
       .sort({ createdAt: -1 }) // Sort by most recent first
       .populate("problems.problem", "problemId name rating tags")
-      .populate("contest", "name contestId");
+      .populate("leaderboard", "user score penalty rank");
 
     return res.json(practiceContests);
   } catch (error) {

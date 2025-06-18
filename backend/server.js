@@ -28,7 +28,7 @@ app.use("/api/users", userRouter);
 app.use("/api/problems", problemRouter);
 app.use("/api/contests", contestRouter);
 app.use("/api/practice-contests", practiceContestRouter);
-app.use("/api/sunmissions", submissionRouter);
+app.use("/api/submissions", submissionRouter);
 
 // Basic Root Route for testing if server is up
 app.get("/", (req, res) => {
