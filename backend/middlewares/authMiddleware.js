@@ -1,8 +1,21 @@
 const jwt = require("jsonwebtoken");
 
 const authMiddleware = async (req, res, next) => {
-  const { token } = req.headers;
+  // 1. Get the authorization header from the request
+  const authHeader = req.headers.authorization;
+
+  // 2. Check if the header exists and is in the correct 'Bearer <token>' format
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return res.status(401).json({
+      message:
+        "No token provided or token is not in Bearer format. Authorization denied.",
+    });
+  }
+
   try {
+    // 3. Extract the token from the header ('Bearer <token>' -> '<token>')
+    const token = authHeader.split(" ")[1];
+
     if (!token) {
       return res
         .status(401)
