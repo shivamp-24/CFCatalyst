@@ -305,3 +305,54 @@ This project aims to develop a web application that helps users prepare for Code
 
 - **Environment Configuration**:
   - Updated `.env` to include `CODEFORCES_API_KEY` and `CODEFORCES_API_SECRET` for authenticated Codeforces API access.
+
+### Day 8: Frontend Setup and Initial UI Implementation
+
+- **Frontend Project Initialization**:
+
+  - Created a React-based frontend project using Vite as the build tool, configured in `package.json`:
+    - Dependencies: `react`, `react-dom`, `react-router-dom`, `axios`, `lucide-react` (icons), `tailwindcss`, and UI libraries (`@radix-ui/react-slot`, `class-variance-authority`, `clsx`, `tailwind-merge`, `tailwindcss-animate`).
+    - Dev dependencies: `eslint`, `vite`, `@vitejs/plugin-react`, `tailwindcss`, `postcss`, `autoprefixer`, and related plugins for linting and build optimization.
+    - Scripts: `dev`, `build`, `lint`, and `preview` for development and production workflows.
+  - Set up `index.html` as the entry point, loading the React application via `main.jsx`.
+
+- **Application Entry and Routing**:
+
+  - Configured `main.jsx` as the main entry point:
+    - Wraps the application in `StrictMode`, `Router` (from `react-router-dom`), and `AuthProvider` (from `AuthContext`) for state management and navigation.
+    - Renders the `App` component into the `root` element.
+  - Implemented `App.jsx` to define application routes using `react-router-dom`:
+    - Public routes: `/` (Home), `/login` (Login), `/register` (Register).
+    - Private route: `/dashboard` (Dashboard), protected by `PrivateRoute` component.
+    - Routes map to corresponding page components (`HomePage`, `LoginPage`, `RegisterPage`, `DashboardPage`).
+
+- **Authentication Context and Hook**:
+
+  - Created `context/AuthContext.jsx` to manage authentication state across the application:
+    - Defines `AuthContext` and `AuthProvider` to provide `user`, `token`, `login`, `register`, and `logout` functionalities.
+    - Persists JWT token in `localStorage` and syncs user data via `/auth/user` endpoint on token presence.
+    - Handles navigation on login (`/dashboard`), registration (`/login`), and logout (`/login`).
+    - Uses `apiService` for API calls with token-based authorization.
+  - Created `hooks/useAuth.js` as a custom hook to simplify access to `AuthContext` values in components.
+
+- **API Service Setup**:
+
+  - Created `api/apiService.js` to centralize backend API interactions:
+    - Configures an `axios` instance with `baseURL` from `VITE_BACKEND_URL` (environment variable).
+    - Adds request interceptor to attach JWT token (`Bearer`) from `localStorage` to authorized requests.
+    - Handles errors via promise rejection for downstream handling.
+
+- **Home Page UI Implementation**:
+
+  - Created `pages/HomePage.jsx` as the landing page:
+    - Features a responsive layout with header, hero section, features section, call-to-action (CTA) section, and footer.
+    - Header: Includes logo (`Trophy` icon from `lucide-react`), app name (`CFCatalyst`), and navigation buttons (`Sign In`, `Sign Up`).
+    - Hero: Promotes the platform with a headline, description, and buttons linking to `/register` and `/login`.
+    - Features: Displays four cards highlighting platform benefits (`Smart Problem Selection`, `Contest Simulation`, `Performance Tracking`, `Competitive Environment`) using `lucide-react` icons and `Card` components from a custom UI library.
+    - CTA: Encourages registration with a prominent button.
+    - Footer: Includes copyright, terms, privacy, and contact links.
+    - Styled with Tailwind CSS for responsive design and animations (via `tailwindcss-animate`).
+
+- **Utility Functions**:
+  - Created `utils/utils.js` to provide styling utilities:
+    - Defines `cn` function, combining `clsx` and `tailwind-merge` to merge Tailwind classes dynamically for consistent styling.
