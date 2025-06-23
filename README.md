@@ -356,3 +356,42 @@ This project aims to develop a web application that helps users prepare for Code
 - **Utility Functions**:
   - Created `utils/utils.js` to provide styling utilities:
     - Defines `cn` function, combining `clsx` and `tailwind-merge` to merge Tailwind classes dynamically for consistent styling.
+
+### Day 9: Authentication UI, Toast Notifications, and Shadcn UI Integration
+
+- **Authentication Pages Implementation**:
+
+  - Created `pages/LoginPage.jsx` for user login:
+    - Features a centered `Card` with logo (`Trophy` icon from `lucide-react`), app name (`CFCatalyst`), and a form for email/Codeforces handle and password.
+    - Implements form validation with real-time feedback using `useState` for `formData`, `errors`, and `touched` states.
+    - Supports login via email or Codeforces handle, calling `useAuth().login` with appropriate parameters.
+    - Provides visual cues for input validity (`CheckCircle` for valid, `AlertCircle` for errors) and dynamic input styling (red/green borders).
+    - Includes links to `/forgot-password` (placeholder) and `/register`.
+    - Uses `useToast` for success/error notifications on login attempts.
+  - Created `pages/RegisterPage.jsx` for user registration:
+    - Similar layout to `LoginPage` with a form for Codeforces handle, email, password, and confirm password.
+    - Validates inputs with regex for handle (alphanumeric/underscore) and email, and checks password length and match.
+    - Features a password strength indicator (Weak/Medium/Strong) based on length, case, numbers, and special characters, with a dynamic progress bar.
+    - Calls `useAuth().register` with mapped user data (`codeforcesHandle`, `email`, `password`).
+    - Provides visual feedback and error handling similar to `LoginPage`, with toast notifications for success/error.
+    - Links to `/login` for existing users.
+
+- **Toast Notification System**:
+
+  - Created `hooks/use-toast.jsx` to manage toast notifications:
+    - Implements a reducer-based state management system with actions (`ADD_TOAST`, `UPDATE_TOAST`, `DISMISS_TOAST`, `REMOVE_TOAST`).
+    - Limits to one toast at a time (`TOAST_LIMIT=1`) with auto-dismissal after 3 seconds (`TOAST_REMOVE_DELAY`).
+    - Provides `useToast` hook to access `toasts`, `toast` (create), and `dismiss` functions.
+    - Uses unique IDs and timeout management for smooth toast lifecycle (creation, display, animation, removal).
+  - Created `ui/toaster.jsx` for rendering toasts:
+    - Displays toasts in a fixed top-right container with slide-in/out animations.
+    - Supports `default` and `destructive` variants (white for default, red for errors).
+    - Includes a dismiss button with `X` icon from `lucide-react`.
+    - Renders `title` and `description` with dynamic styling based on variant.
+  - Updated `App.jsx` to include `<Toaster />` at the root level, enabling global toast notifications.
+
+- **Shadcn UI Integration**:
+  - Installed Shadcn UI components (`Input`, `Label`) using `shadcn@latest add input label`:
+    - Added to `ui/` directory (assumed `src/components/ui/` based on imports `@/components/ui/`).
+    - Used in `LoginPage` and `RegisterPage` for consistent form input styling.
+  - Leveraged existing Shadcn components (`Card`, `Button`) from prior setup, ensuring cohesive UI design with Tailwind CSS.

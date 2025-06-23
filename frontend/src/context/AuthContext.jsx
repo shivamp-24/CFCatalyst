@@ -20,7 +20,7 @@ export const AuthProvider = ({ children }) => {
       apiService
         .get("/auth/user")
         .then((response) => {
-          setUser(response.data.user);
+          setUser(response.data);
         })
         .catch(() => {
           // Token is invalid
@@ -29,11 +29,18 @@ export const AuthProvider = ({ children }) => {
     }
   }, [token]);
 
-  const login = async (email, password) => {
-    const response = await apiService.post("/auth/login", { email, password });
-    const { token } = response.data;
+  const login = async (email, password, codeforcesHandle) => {
+    // Create payload based on whether email or codeforcesHandle is provided
+    const payload = { password };
+    if (email) payload.email = email;
+    if (codeforcesHandle) payload.codeforcesHandle = codeforcesHandle;
+
+    const response = await apiService.post("/auth/login", payload);
+    const { token, user } = response.data;
+
     localStorage.setItem("token", token);
     setToken(token);
+    setUser(user);
     navigate("/dashboard");
   };
 
