@@ -39,6 +39,12 @@ const userSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    avatar: {
+      type: String,
+    },
+    titlePhoto: {
+      type: String,
+    },
     solvedProblems: [
       {
         type: String, // e.g., "1700A", "1650B"
@@ -50,6 +56,63 @@ const userSchema = new mongoose.Schema(
         ref: "PracticeContest",
       },
     ],
+    // Cached Codeforces contest history
+    cfContestHistory: {
+      contests: [
+        {
+          type: Object, // Store the entire contest object as-is
+        },
+      ],
+      lastUpdated: { type: Date, default: null },
+    },
+    // Dashboard statistics
+    dashboardStats: {
+      // Problems solved statistics
+      problemsSolved: {
+        currentMonth: {
+          count: { type: Number, default: 0 },
+          lastUpdated: { type: Date, default: Date.now },
+        },
+        previousMonth: {
+          count: { type: Number, default: 0 },
+          lastUpdated: { type: Date, default: Date.now },
+        },
+      },
+      // Rating statistics
+      rating: {
+        currentMonth: {
+          value: { type: Number, default: 0 },
+          lastUpdated: { type: Date, default: Date.now },
+        },
+        previousMonth: {
+          value: { type: Number, default: 0 },
+          lastUpdated: { type: Date, default: Date.now },
+        },
+      },
+      // Practice contests statistics
+      practiceContests: {
+        currentMonth: {
+          count: { type: Number, default: 0 },
+          lastUpdated: { type: Date, default: Date.now },
+        },
+        previousMonth: {
+          count: { type: Number, default: 0 },
+          lastUpdated: { type: Date, default: Date.now },
+        },
+      },
+      // Performance statistics
+      performance: {
+        currentMonth: {
+          value: { type: Number, default: 0 }, // Percentage value
+          lastUpdated: { type: Date, default: Date.now },
+        },
+        previousMonth: {
+          value: { type: Number, default: 0 }, // Percentage value
+          lastUpdated: { type: Date, default: Date.now },
+        },
+      },
+      lastFullUpdate: { type: Date, default: null },
+    },
   },
   { timestamps: true } // Adds createdAt and updatedAt
 );

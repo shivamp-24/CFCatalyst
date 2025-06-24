@@ -395,3 +395,55 @@ This project aims to develop a web application that helps users prepare for Code
     - Added to `ui/` directory (assumed `src/components/ui/` based on imports `@/components/ui/`).
     - Used in `LoginPage` and `RegisterPage` for consistent form input styling.
   - Leveraged existing Shadcn components (`Card`, `Button`) from prior setup, ensuring cohesive UI design with Tailwind CSS.
+
+### Day 10: Dashboard Implementation and Backend Enhancements
+
+- **Backend Enhancements**:
+
+  - Updated `controllers/authController.js`:
+    - Added `updateCodeforcesData` endpoint (`PUT /api/auth/update-cf-data`) to sync user’s Codeforces rating, max rating, and avatar.
+  - Updated `controllers/userController.js`:
+    - Added endpoints for dashboard statistics (`getDashboardStats`, `updateDashboardStats`), and recent contests (`getRecentContests`).
+    - Implemented `getRecentContests` to combine Codeforces and practice contests, with caching for Codeforces contest history and accurate problem counts via `formatContestsWithAccurateProblemCounts`.
+  - Updated `models/User.js`:
+    - Extended schema with `name`, `bio`, `country`, `role`, `solvedProblems`, `practiceContestHistory`, `cfContestHistory` (cached), and `dashboardStats` for storing problems solved, rating, practice contests, and performance metrics for current/previous months.
+  - Updated `services/codeforcesService.js`:
+    - Added `getUserContestHistory` to fetch and enhance user’s Codeforces contest history with contest details.
+    - Improved `syncContests` with problem linking and contest categorization (e.g., `Div. 2`, `Educational`).
+    - Enhanced error handling with retry logic and logging for API calls.
+  - Created `services/dashboardStatsService.js`:
+    - Implemented `getDashboardStats` and `updateDashboardStats` to compute and cache statistics for problems solved, rating, practice contests, and performance (solved problem percentage).
+    - Uses `codeforcesService` to fetch submissions and user info, calculating monthly stats with trend analysis.
+
+- **Frontend Enhancements**:
+  - Updated `src/App.jsx`:
+    - Added routes for `/practice`, `/problems`, `/contests`, `/leaderboard`, `/profile`, and `/settings`, all protected by `PrivateRoute`.
+    - Integrated `useScrollToTop` hook for consistent page navigation behavior.
+  - Created `src/components/DashboardLayout.jsx`:
+    - Provides a layout wrapper for dashboard pages with `DashboardHeader` and a responsive main content area using Tailwind CSS.
+  - Created `src/components/DashboardHeader.jsx`:
+    - Implements a responsive header with logo (`Trophy` icon), navigation links (`Dashboard`, `Practice`, `Problems`, `Contests`, `Leaderboard`), and a user profile dropdown.
+    - Features mobile menu toggle and dynamic user avatar (Codeforces avatar or initial-based fallback with rating-based color coding).
+    - Includes dropdown links for `Profile`, `Activity`, `Schedule`, `Settings`, and `Sign Out` using `useAuth().logout`.
+  - Created `src/components/ScrollToTop.jsx` and `src/hooks/useScrollToTop.js`:
+    - Implements a custom hook to scroll to the top on route changes using `react-router-dom`’s `useLocation`.
+  - Created `src/components/ui/progress.jsx`:
+    - Added Shadcn UI `Progress` component for visualizing performance metrics (e.g., problem-solving rate).
+  - Updated `src/components/ui/toaster.jsx`:
+    - Fixed `handleDismiss` to include `event.preventDefault()` to prevent event bubbling issues.
+  - Updated `src/api/apiService.js`:
+    - Added `userApi` methods for fetching/updating profile, Codeforces stats, practice history, dashboard stats, and recent contests.
+    - Supports query parameters for `getRecentContests` (e.g., `limit`, `refresh`).
+  - Updated `src/lib/utils.js`:
+    - Enhanced utility functions for Tailwind class merging, supporting new UI components.
+  - Updated `src/main.jsx`:
+    - Ensured proper initialization of React app with updated dependencies.
+  - Updated `src/pages/DashboardPage.jsx`:
+    - Implemented a comprehensive dashboard with:
+      - Welcome section with user handle and refresh stats button.
+      - Statistics cards for problems solved, rating, practice contests, and performance, with trend indicators (`ArrowUp`, `ArrowDown`).
+      - Quick action cards for `Practice Contest`, `Browse Problems`, and `Leaderboard` with gradient styling.
+      - Recent activity section displaying Codeforces and practice contests with problem counts, duration, and performance/rating changes.
+      - Sidebar with performance insights (progress bars) and recommended problems based on user performance.
+    - Uses `userApi` for fetching dashboard stats and recent contests, with toast notifications for success/error states.
+    - Includes loading states, mock data fallback for contests, and relative date formatting.

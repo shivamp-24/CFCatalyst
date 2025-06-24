@@ -61,6 +61,8 @@ const register = async (req, res) => {
       password,
       codeforcesRating: cfData.rating || 0,
       maxRating: cfData.maxRating || 0,
+      avatar: cfData.avatar || null,
+      titlePhoto: cfData.titlePhoto || null,
     });
 
     //hash password
@@ -89,6 +91,7 @@ const register = async (req, res) => {
         codeforcesHandle: newUser.codeforcesHandle,
         codeforcesRating: newUser.codeforcesRating,
         maxRating: newUser.maxRating,
+        avatar: newUser.avatar,
       },
     });
   } catch (error) {
@@ -147,6 +150,7 @@ const login = async (req, res) => {
         codeforcesHandle: user.codeforcesHandle,
         codeforcesRating: user.codeforcesRating,
         maxRating: user.maxRating,
+        avatar: user.avatar,
       },
     });
   } catch (error) {
@@ -179,4 +183,49 @@ const logout = async (req, res) => {
   res.json({ message: "User logged out successfully" });
 };
 
-module.exports = { register, login, getUser, logout };
+// @desc    Update user's Codeforces data including avatar
+// @route   PUT /api/auth/update-cf-data
+const updateCodeforcesData = async (req, res) => {
+  const userId = req.user.id;
+
+  try {
+    // Find the user
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Fetch latest data from Codeforces API
+    try {
+      const cfData = await codeforcesService.getUserInfo(user.codeforcesHandle);
+
+      // Update user data
+      user.codeforcesRating = cfData.rating || user.codeforcesRating;
+      user.maxRating = cfData.maxRating || user.maxRating;
+      user.avatar = cfData.avatar || user.avatar;
+      user.titlePhoto = cfData.titlePhoto || user.titlePhoto;
+
+      await user.save();
+
+      res.json({
+        message: "Codeforces data updated successfully",
+        user: {
+          id: user.id,
+          email: user.email,
+          codeforcesHandle: user.codeforcesHandle,
+          codeforcesRating: user.codeforcesRating,
+          maxRating: user.maxRating,
+          avatar: user.avatar,
+        },
+      });
+    } catch (error) {
+      console.error("Error updating Codeforces data:", error.message);
+      res.status(500).json({ message: "Failed to update Codeforces data" });
+    }
+  } catch (error) {
+    console.error("Server error:", error.message);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+module.exports = { register, login, getUser, logout, updateCodeforcesData };

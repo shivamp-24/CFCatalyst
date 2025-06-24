@@ -11,5 +11,20 @@ userRouter.get(
   authMiddleware,
   userController.getPracticeHistory
 );
+userRouter.get(
+  "/me/dashboard-stats",
+  authMiddleware,
+  userController.getDashboardStats
+);
+userRouter.post(
+  "/me/dashboard-stats/update",
+  authMiddleware,
+  userController.updateDashboardStats
+);
+userRouter.get(
+  "/me/recent-contests",
+  authMiddleware,
+  userController.getRecentContests
+);
 
 module.exports = userRouter;

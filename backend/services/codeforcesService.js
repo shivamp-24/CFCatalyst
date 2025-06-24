@@ -4,22 +4,22 @@ const Contest = require("../models/Contest");
 const codeforces = require("../config/codeforces");
 const Submission = require("../models/Submission");
 
-// Configure axios instance with timeout and rate limit handling
-const apiClient = axios.create({
-  baseURL: process.env.CODEFORCES_API_URL,
-  timeout: 30 * 1000, // 30 seconds timeout
-});
-
 //Retry Logic for API Calls
 const retry = async (fn, maxAttempts = 3, delay = 1000) => {
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
       return await fn();
     } catch (error) {
-      if (attempt == maxAttempts || error.response?.status !== 429) {
+      if (attempt === maxAttempts) {
+        console.error(`Failed after ${maxAttempts} attempts:`, error.message);
         throw error;
       }
 
+      console.log(
+        `Attempt ${attempt} failed, retrying in ${
+          delay * Math.pow(2, attempt)
+        }ms...`
+      );
       // Wait before retrying (exponential backoff)
       await new Promise((resolve) =>
         setTimeout(resolve, delay * Math.pow(2, attempt))
@@ -31,25 +31,26 @@ const retry = async (fn, maxAttempts = 3, delay = 1000) => {
 //Fetch user information (user.info)
 const getUserInfo = async (handle) => {
   return retry(async () => {
-    const response = await apiClient.get(
-      `/user.info?handles=${encodeURIComponent(handle)}`
-    );
-    if (response.data.status !== "OK") {
-      throw new Error(`Codeforces API error: ${response.data.comment}`);
+    try {
+      const response = await codeforces.user.info({ handles: handle });
+      return response.result[0];
+    } catch (error) {
+      console.error(`Error fetching user info for ${handle}:`, error.message);
+      throw error;
     }
-    return response.data.result[0];
   });
 };
 
 // Fetch problemset problems and statistics (problemset.problems)
 const getProblemsetProblems = async () => {
   return retry(async () => {
-    const response = await apiClient.get("/problemset.problems");
-
-    if (response.data.status !== "OK") {
-      throw new Error(`Codeforces API error: ${response.data.comment}`);
+    try {
+      const response = await codeforces.problemset.problems({});
+      return response.result;
+    } catch (error) {
+      console.error("Error fetching problemset problems:", error.message);
+      throw error;
     }
-    return response.data.result;
   });
 };
 
@@ -116,6 +117,7 @@ const syncProblems = async () => {
       totalProblemsProcessed: cfProblemList.length,
     };
   } catch (error) {
+    console.error("Failed to sync problems:", error);
     throw new Error(`Failed to sync problems: ${error.message}`);
   }
 };
@@ -172,16 +174,16 @@ const categorizeContestName = (name) => {
 // Fetch contest list (contest.list)
 const getContestList = async (gym = false) => {
   return retry(async () => {
-    const response = await apiClient.get(`/contest.list?gym=${gym}`);
-    if (response.data.status !== "OK") {
-      throw new Error(
-        `Codeforces API error for contest.list: ${response.data.comment}`
+    try {
+      const response = await codeforces.contest.list({ gym });
+      console.log(
+        `[codeforcesService] Successfully fetched ${response.result.length} contests (gym=${gym}).`
       );
+      return response.result;
+    } catch (error) {
+      console.error(`Error fetching contest list (gym=${gym}):`, error.message);
+      throw error;
     }
-    console.log(
-      `[codeforcesService] Successfully fetched ${response.data.result.length} contests (gym=${gym}).`
-    );
-    return response.data.result;
   });
 };
 
@@ -326,26 +328,21 @@ const getUserSubmissions = async (handle) => {
   );
 
   return retry(async () => {
-    const response = await apiClient.get("/user.status", {
-      params: {
-        handle: handle,
+    try {
+      const response = await codeforces.user.status({
+        handle,
         from: 1,
         count: submissionCountToFetch,
-      },
-    });
+      });
 
-    if (response.data.status !== "OK") {
-      throw new Error(
-        `Codeforces API error for user.status (${handle}): ${
-          response.data.comment || "Unknown error"
-        }`
+      console.log(
+        `Successfully fetched ${response.result.length} submissions for ${handle}.`
       );
+      return response.result; // This is an array of submission objects
+    } catch (error) {
+      console.error(`Error fetching submissions for ${handle}:`, error.message);
+      throw error;
     }
-
-    console.log(
-      `Successfully fetched ${response.data.result.length} submissions for ${handle}.`
-    );
-    return response.data.result; // This is an array of submission objects
   });
 };
 
@@ -392,79 +389,140 @@ const syncSubmissionsForPracticeContest = async (
   codeforcesHandle,
   practiceContest
 ) => {
-  // 1. Fetch user's last 50 submissions from Codeforces API
-  const cfSubmissionsResponse = await codeforces.user.status({
-    handle: codeforcesHandle,
-    from: 1,
-    count: 50, // A reasonable number to check for recent activity
-  });
+  try {
+    // 1. Fetch user's last 50 submissions from Codeforces API
+    const cfSubmissionsResponse = await codeforces.user.status({
+      handle: codeforcesHandle,
+      from: 1,
+      count: 50, // A reasonable number to check for recent activity
+    });
 
-  if (!cfSubmissionsResponse || cfSubmissionsResponse.status !== "OK") {
-    throw new Error("Failed to fetch submissions from Codeforces API.");
-  }
-  const cfSubmissions = cfSubmissionsResponse.result;
+    const cfSubmissions = cfSubmissionsResponse.result;
 
-  // 2. Prepare for efficient matching
-  // Create a map of problem identifiers ('contestId-index') to the problem object in our contest
-  const contestProblemMap = new Map();
-  practiceContest.problems.forEach((p) => {
-    const problemIdentifier = `${p.problem.contestId}-${p.problem.index}`;
-    contestProblemMap.set(problemIdentifier, p);
-  });
+    // 2. Prepare for efficient matching
+    // Create a map of problem identifiers ('contestId-index') to the problem object in our contest
+    const contestProblemMap = new Map();
+    practiceContest.problems.forEach((p) => {
+      const problemIdentifier = `${p.problem.contestId}-${p.problem.index}`;
+      contestProblemMap.set(problemIdentifier, p);
+    });
 
-  let newSubmissionsCount = 0;
-  const updatedProblemIds = new Set();
+    let newSubmissionsCount = 0;
+    const updatedProblemIds = new Set();
 
-  // 3. Process submissions from oldest to newest to get the correct first solve time
-  for (const cfSub of cfSubmissions.reverse()) {
-    const problemIdentifier = `${cfSub.problem.contestId}-${cfSub.problem.index}`;
+    // 3. Process submissions from oldest to newest to get the correct first solve time
+    for (const cfSub of cfSubmissions.reverse()) {
+      const problemIdentifier = `${cfSub.problem.contestId}-${cfSub.problem.index}`;
 
-    // Check if this submission is for a problem in our contest
-    if (contestProblemMap.has(problemIdentifier)) {
-      // Check if we have already synced this submission
-      const existingSubmission = await Submission.findOne({
-        submissionCfId: cfSub.id,
-      });
-
-      if (!existingSubmission) {
-        newSubmissionsCount++;
-        // This is a new, relevant submission. Let's save it.
-        const newDbSubmission = new Submission({
+      // Check if this submission is for a problem in our contest
+      if (contestProblemMap.has(problemIdentifier)) {
+        // Check if we have already synced this submission
+        const existingSubmission = await Submission.findOne({
           submissionCfId: cfSub.id,
-          practiceContest: practiceContest._id,
-          user: practiceContest.user,
-          problem: contestProblemMap.get(problemIdentifier).problem._id,
-          language: cfSub.programmingLanguage,
-          verdict: cfSub.verdict, // Store the raw CF verdict
         });
-        await newDbSubmission.save();
 
-        // If it's an "OK" verdict, update the parent contest
-        if (cfSub.verdict === "OK") {
-          const problemInContest = contestProblemMap.get(problemIdentifier);
-          // Only update if it wasn't already marked as solved
-          if (!problemInContest.solved) {
-            problemInContest.solved = true;
-            const solveTime =
-              cfSub.creationTimeSeconds -
-              Math.floor(practiceContest.startTime.getTime() / 1000);
-            problemInContest.userSolveTimeSeconds = Math.max(0, solveTime); // Ensure not negative
-            updatedProblemIds.add(problemInContest.problem._id.toString());
+        if (!existingSubmission) {
+          newSubmissionsCount++;
+          // This is a new, relevant submission. Let's save it.
+          const newDbSubmission = new Submission({
+            submissionCfId: cfSub.id,
+            practiceContest: practiceContest._id,
+            user: practiceContest.user,
+            problem: contestProblemMap.get(problemIdentifier).problem._id,
+            language: cfSub.programmingLanguage,
+            verdict: cfSub.verdict, // Store the raw CF verdict
+          });
+          await newDbSubmission.save();
+
+          // If it's an "OK" verdict, update the parent contest
+          if (cfSub.verdict === "OK") {
+            const problemInContest = contestProblemMap.get(problemIdentifier);
+            // Only update if it wasn't already marked as solved
+            if (!problemInContest.solved) {
+              problemInContest.solved = true;
+              const solveTime =
+                cfSub.creationTimeSeconds -
+                Math.floor(practiceContest.startTime.getTime() / 1000);
+              problemInContest.userSolveTimeSeconds = Math.max(0, solveTime); // Ensure not negative
+              updatedProblemIds.add(problemInContest.problem._id.toString());
+            }
           }
         }
       }
     }
+
+    // 4. Save the changes to the practice contest if any problems were updated
+    if (updatedProblemIds.size > 0) {
+      await practiceContest.save();
+    }
+
+    return {
+      newSubmissionsCount,
+      updatedProblemsCount: updatedProblemIds.size,
+    };
+  } catch (error) {
+    console.error(
+      `Error syncing submissions for ${codeforcesHandle}:`,
+      error.message
+    );
+    throw error;
+  }
+};
+
+// Fetch user's contest history from Codeforces API
+const getUserContestHistory = async (handle) => {
+  if (!handle) {
+    throw new Error("Codeforces handle is required to fetch contest history.");
   }
 
-  // 4. Save the changes to the practice contest if any problems were updated
-  if (updatedProblemIds.size > 0) {
-    await practiceContest.save();
-  }
+  return retry(async () => {
+    try {
+      const response = await codeforces.user.rating({ handle });
+      console.log(
+        `Successfully fetched ${response.result.length} contests for ${handle}.`
+      );
 
-  return {
-    newSubmissionsCount,
-    updatedProblemsCount: updatedProblemIds.size,
-  };
+      // Get contest details for each contest the user participated in
+      const contestIds = response.result.map((entry) => entry.contestId);
+      const contestDetailsMap = new Map();
+
+      if (contestIds.length > 0) {
+        // Fetch all contests
+        const allContests = await getContestList(false);
+
+        // Create a map for quick lookup
+        allContests.forEach((contest) => {
+          contestDetailsMap.set(contest.id, contest);
+        });
+      }
+
+      // Enhance the contest history with more details
+      const enhancedHistory = response.result.map((entry) => {
+        const contestDetails = contestDetailsMap.get(entry.contestId) || {};
+        return {
+          ...entry,
+          contestName: contestDetails.name || `Contest #${entry.contestId}`,
+          durationSeconds: contestDetails.durationSeconds || 0,
+          startTimeSeconds:
+            contestDetails.startTimeSeconds || entry.ratingUpdateTimeSeconds,
+          type: contestDetails.type || "CF",
+        };
+      });
+
+      // Sort by ratingUpdateTimeSeconds in descending order to get most recent first
+      enhancedHistory.sort(
+        (a, b) => b.ratingUpdateTimeSeconds - a.ratingUpdateTimeSeconds
+      );
+
+      return enhancedHistory;
+    } catch (error) {
+      console.error(
+        `Error fetching contest history for ${handle}:`,
+        error.message
+      );
+      throw error;
+    }
+  });
 };
 
 module.exports = {
@@ -476,4 +534,5 @@ module.exports = {
   getUserSubmissions,
   getUserSolvedProblemIds,
   syncSubmissionsForPracticeContest,
+  getUserContestHistory,
 };

@@ -18,6 +18,7 @@ export function Toaster() {
         description,
         variant,
         open,
+        onOpenChange,
         ...props
       }) {
         return (
@@ -42,7 +43,10 @@ export function Toaster() {
                 )}
               </div>
               <button
-                onClick={() => handleDismiss(id)}
+                onClick={() => {
+                  handleDismiss(id);
+                  if (onOpenChange) onOpenChange(false);
+                }}
                 className={`ml-4 p-1 rounded-full hover:bg-black/10 ${
                   variant === "destructive" ? "text-white" : "text-gray-500"
                 }`}
