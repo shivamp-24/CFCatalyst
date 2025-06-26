@@ -67,6 +67,16 @@ const generatePracticeContest = async (req, res) => {
         .json({ message: "User not found or Codeforces handle is missing." });
     }
 
+    console.log("Requesting problem selection with params:", {
+      handle: user.codeforcesHandle,
+      mode: generationMode,
+      count: numProblemCount,
+      minRating: parsedUserMinRating,
+      maxRating: parsedUserMaxRating,
+      tags: userSpecifiedTags,
+      format: targetContestFormat,
+    });
+
     // fetch the problems from logic in problemSelection
     const selectionResult = await problemSelection.selectProblems(
       user.codeforcesHandle,
@@ -77,6 +87,29 @@ const generatePracticeContest = async (req, res) => {
       userSpecifiedTags,
       targetContestFormat
     );
+
+    console.log(
+      "Selection result received:",
+      selectionResult
+        ? selectionResult.error
+          ? "Has error"
+          : "No error, problem count: " +
+            (selectionResult.problems?.length || 0)
+        : "undefined"
+    );
+
+    // Check if selectionResult exists and if there was an error during selection
+    if (!selectionResult) {
+      return res.status(500).json({
+        message: "Problem selection failed. Please try again later.",
+      });
+    }
+
+    if (selectionResult.error) {
+      return res.status(400).json({
+        message: selectionResult.error,
+      });
+    }
 
     // Extract problems from the result
     const selectedProblemsFromUtil = selectionResult.problems;

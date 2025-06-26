@@ -74,4 +74,69 @@ export const userApi = {
   },
 };
 
+// Practice Contest related API functions
+export const practiceContestApi = {
+  // Generate a new practice contest
+  generateContest: async (contestParams) => {
+    try {
+      const response = await apiService.post(
+        "/practice-contests/generate",
+        contestParams
+      );
+      return response.data;
+    } catch (error) {
+      console.error("API error generating contest:", error);
+      // Rethrow to allow component to handle the error
+      throw error;
+    }
+  },
+
+  // Get user's practice contests
+  getUserContests: async (page = 1, limit = 10, status = null) => {
+    let url = `/practice-contests/me?page=${page}&limit=${limit}`;
+    if (status) url += `&status=${status}`;
+    const response = await apiService.get(url);
+    return response.data;
+  },
+
+  // Get specific practice contest
+  getContest: async (contestId) => {
+    const response = await apiService.get(`/practice-contests/${contestId}`);
+    return response.data;
+  },
+
+  // Start a practice contest
+  startContest: async (contestId) => {
+    const response = await apiService.post(
+      `/practice-contests/${contestId}/start`
+    );
+    return response.data;
+  },
+
+  // Complete a practice contest
+  completeContest: async (contestId, problemSolutions = null) => {
+    const response = await apiService.post(
+      `/practice-contests/${contestId}/complete`,
+      { problemSolutions }
+    );
+    return response.data;
+  },
+
+  // Access editorial for a problem in a contest
+  accessEditorial: async (contestId, problemId) => {
+    const response = await apiService.put(
+      `/practice-contests/${contestId}/problems/${problemId}/editorial`
+    );
+    return response.data;
+  },
+
+  // Sync contest submissions from Codeforces
+  syncSubmissions: async (contestId) => {
+    const response = await apiService.post(
+      `/practice-contests/${contestId}/sync`
+    );
+    return response.data;
+  },
+};
+
 export default apiService;

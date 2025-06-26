@@ -24,96 +24,106 @@ const selectProblems = async (
   userSpecifiedTags, //Target contest format (e.g., "Div. 2")
   targetContestFormat // Crucial for CONTEST_SIMULATION
 ) => {
-  console.log(
-    `[problemSelection] Initiating for ${userCodeforcesHandle}, mode: ${generationMode}, count: ${problemCount}`
-  );
-  console.log(
-    `[problemSelection] User Ratings: min=${userMinRating}, max=${userMaxRating}. Tags: ${userSpecifiedTags}`
-  );
-
-  if (!userCodeforcesHandle || !generationMode || !problemCount) {
-    throw new Error(
-      "[problemSelection] Missing required parameters: userCodeforcesHandle, generationMode, or problemCount."
-    );
-  }
-
-  const numProblemCount = parseInt(problemCount);
-  if (isNaN(numProblemCount) || numProblemCount <= 0) {
-    throw new Error(
-      "[problemSelection] problemCount must be a positive number."
-    );
-  }
-
-  // 1. Fetch Solved Problem IDs
-  let solvedProblemIds = new Set();
   try {
-    solvedProblemIds = await codeforcesService.getUserSolvedProblemIds(
-      userCodeforcesHandle
+    console.log(
+      `[problemSelection] Initiating for ${userCodeforcesHandle}, mode: ${generationMode}, count: ${problemCount}`
     );
     console.log(
-      `[problemSelection] User ${userCodeforcesHandle} has solved ${solvedProblemIds.size} problems.`
+      `[problemSelection] User Ratings: min=${userMinRating}, max=${userMaxRating}. Tags: ${userSpecifiedTags}`
     );
-  } catch (error) {
-    console.warn(
-      `[problemSelection] Could not fetch solved problems for ${userCodeforcesHandle}: ${error.message}. Proceeding without this filter.`
-    );
-  }
 
-  // 2. Determine Effective Rating Range
-  let effectiveMinRating;
-  let effectiveMaxRating;
-
-  if (
-    typeof userMinRating === "number" &&
-    typeof userMaxRating === "number" &&
-    userMinRating <= userMaxRating
-  ) {
-    effectiveMinRating = userMinRating;
-    effectiveMaxRating = userMaxRating;
-    console.log(
-      `[problemSelection] Using user-defined rating range: ${effectiveMinRating}-${effectiveMaxRating}`
-    );
-  } else {
-    try {
-      const userInfo = await codeforcesService.getUserInfo(
-        userCodeforcesHandle
+    if (!userCodeforcesHandle || !generationMode || !problemCount) {
+      throw new Error(
+        "[problemSelection] Missing required parameters: userCodeforcesHandle, generationMode, or problemCount."
       );
-      const currentUserRating = userInfo ? userInfo.rating : null;
-
-      if (currentUserRating) {
-        effectiveMinRating = Math.max(
-          800,
-          currentUserRating - DEFAULT_RATING_SPAN_AROUND_USER
-        ); // Ensure min rating is at least 800
-        effectiveMaxRating =
-          currentUserRating + DEFAULT_RATING_SPAN_AROUND_USER;
-        console.log(
-          `[problemSelection] Derived rating range from user rating ${currentUserRating}: ${effectiveMinRating}-${effectiveMaxRating}`
-        );
-      } else {
-        effectiveMinRating = DEFAULT_RATING_RANGE_FOR_UNRATED.min;
-        effectiveMaxRating = DEFAULT_RATING_RANGE_FOR_UNRATED.max;
-        console.log(
-          `[problemSelection] User is unrated or rating not found. Using default range: ${effectiveMinRating}-${effectiveMaxRating}`
-        );
-      }
-    } catch (error) {
-      console.warn(
-        `[problemSelection] Could not fetch user info for rating derivation: ${error.message}. Using default unrated range.`
-      );
-      effectiveMinRating = DEFAULT_RATING_RANGE_FOR_UNRATED.min;
-      effectiveMaxRating = DEFAULT_RATING_RANGE_FOR_UNRATED.max;
     }
 
-    // Ensure minRating is not less than a global minimum if necessary (e.g. 800 for Codeforces)
-    effectiveMinRating = Math.max(800, effectiveMinRating);
-    effectiveMaxRating = Math.min(3500, effectiveMaxRating);
-    if (effectiveMinRating > effectiveMaxRating) {
-      // Safety check if derived min > max
-      effectiveMaxRating = effectiveMinRating + DEFAULT_RATING_SPAN_AROUND_USER; // Adjust max
-      console.warn(
-        `[problemSelection] Adjusted effectiveMaxRating as min was higher. New range: ${effectiveMinRating}-${effectiveMaxRating}`
+    const numProblemCount = parseInt(problemCount);
+
+    if (isNaN(numProblemCount) || numProblemCount <= 0) {
+      throw new Error(
+        "[problemSelection] problemCount must be a positive number."
       );
+    }
+
+    // Initialize default return variables
+    let effectiveMinRating =
+      userMinRating || DEFAULT_RATING_RANGE_FOR_UNRATED.min;
+    let effectiveMaxRating =
+      userMaxRating || DEFAULT_RATING_RANGE_FOR_UNRATED.max;
+    let selectedProblems = [];
+    let tagsToQuery = [];
+    let profile = null;
+
+    // 1. Fetch Solved Problem IDs
+    let solvedProblemIds = new Set();
+    try {
+      solvedProblemIds = await codeforcesService.getUserSolvedProblemIds(
+        userCodeforcesHandle
+      );
+      console.log(
+        `[problemSelection] User ${userCodeforcesHandle} has solved ${solvedProblemIds.size} problems.`
+      );
+    } catch (error) {
+      console.warn(
+        `[problemSelection] Could not fetch solved problems for ${userCodeforcesHandle}: ${error.message}. Proceeding without this filter.`
+      );
+    }
+
+    // 2. Determine Effective Rating Range
+    if (
+      typeof userMinRating === "number" &&
+      typeof userMaxRating === "number" &&
+      userMinRating <= userMaxRating
+    ) {
+      effectiveMinRating = userMinRating;
+      effectiveMaxRating = userMaxRating;
+      console.log(
+        `[problemSelection] Using user-defined rating range: ${effectiveMinRating}-${effectiveMaxRating}`
+      );
+    } else {
+      try {
+        const userInfo = await codeforcesService.getUserInfo(
+          userCodeforcesHandle
+        );
+        const currentUserRating = userInfo ? userInfo.rating : null;
+
+        if (currentUserRating) {
+          effectiveMinRating = Math.max(
+            800,
+            currentUserRating - DEFAULT_RATING_SPAN_AROUND_USER
+          ); // Ensure min rating is at least 800
+          effectiveMaxRating =
+            currentUserRating + DEFAULT_RATING_SPAN_AROUND_USER;
+          console.log(
+            `[problemSelection] Derived rating range from user rating ${currentUserRating}: ${effectiveMinRating}-${effectiveMaxRating}`
+          );
+        } else {
+          effectiveMinRating = DEFAULT_RATING_RANGE_FOR_UNRATED.min;
+          effectiveMaxRating = DEFAULT_RATING_RANGE_FOR_UNRATED.max;
+          console.log(
+            `[problemSelection] User is unrated or rating not found. Using default range: ${effectiveMinRating}-${effectiveMaxRating}`
+          );
+        }
+      } catch (error) {
+        console.warn(
+          `[problemSelection] Could not fetch user info for rating derivation: ${error.message}. Using default unrated range.`
+        );
+        effectiveMinRating = DEFAULT_RATING_RANGE_FOR_UNRATED.min;
+        effectiveMaxRating = DEFAULT_RATING_RANGE_FOR_UNRATED.max;
+      }
+
+      // Ensure minRating is not less than a global minimum if necessary (e.g. 800 for Codeforces)
+      effectiveMinRating = Math.max(800, effectiveMinRating);
+      effectiveMaxRating = Math.min(3500, effectiveMaxRating);
+      if (effectiveMinRating > effectiveMaxRating) {
+        // Safety check if derived min > max
+        effectiveMaxRating =
+          effectiveMinRating + DEFAULT_RATING_SPAN_AROUND_USER; // Adjust max
+        console.warn(
+          `[problemSelection] Adjusted effectiveMaxRating as min was higher. New range: ${effectiveMinRating}-${effectiveMaxRating}`
+        );
+      }
     }
 
     // 3. Construct MongoDB Query
@@ -122,10 +132,7 @@ const selectProblems = async (
       baseMongoQuery.problemId = { $nin: Array.from(solvedProblemIds) };
     }
 
-    let selectedProblems = [];
     // 4. Apply Mode-Specific Logic
-    let tagsToQuery = []; // For general modes
-
     switch (generationMode.toUpperCase()) {
       case "GENERAL":
         // No additional tag filters for general mode.
@@ -199,7 +206,7 @@ const selectProblems = async (
           );
         }
 
-        const profile = await contestAnalysisService.getContestProfile(
+        profile = await contestAnalysisService.getContestProfile(
           targetContestFormat
         );
 
@@ -473,9 +480,7 @@ const selectProblems = async (
         errorMessage += ` (Rating: ${effectiveMinRating}-${effectiveMaxRating}). Please try adjusting rating.`;
       }
 
-      if (finalSelectedProblems.length === 0) {
-        throw new Error(errorMessage);
-      }
+      throw new Error(errorMessage);
     }
 
     if (selectedProblems.length < numProblemCount) {
@@ -486,7 +491,7 @@ const selectProblems = async (
 
     // Construct the detailed return object
     const selectionResult = {
-      problems: finalSelectedProblems,
+      problems: finalSelectedProblems || [],
       effectiveMinRatingUsed: effectiveMinRating, // The actual min rating used/derived
       effectiveMaxRatingUsed: effectiveMaxRating, // The actual max rating used/derived
       generationModeUsed: generationMode.toUpperCase(), // The mode that was executed
@@ -522,6 +527,19 @@ const selectProblems = async (
     }
 
     return selectionResult;
+  } catch (error) {
+    console.error(`[problemSelection] Error: ${error.message}`, error.stack);
+
+    // Return a structured error response with fallback values for all fields
+    return {
+      error: error.message || "Unknown error in problem selection",
+      problems: [], // Empty array to prevent null/undefined issues
+      effectiveMinRatingUsed:
+        userMinRating || DEFAULT_RATING_RANGE_FOR_UNRATED.min,
+      effectiveMaxRatingUsed:
+        userMaxRating || DEFAULT_RATING_RANGE_FOR_UNRATED.max,
+      generationModeUsed: generationMode?.toUpperCase() || "GENERAL",
+    };
   }
 };
 

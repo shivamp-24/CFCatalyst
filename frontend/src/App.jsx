@@ -6,6 +6,8 @@ import DashboardPage from "./pages/DashboardPage";
 import HomePage from "./pages/HomePage";
 import { Toaster } from "./components/ui/toaster";
 import useScrollToTop from "./hooks/useScrollToTop";
+import PracticePage from "./pages/PracticePage";
+import PracticeContestPage from "./pages/PracticeContestPage";
 
 function App() {
   // Use the scroll to top hook
@@ -22,7 +24,11 @@ function App() {
         {/* Private Routes */}
         <Route element={<PrivateRoute />}>
           <Route path="/dashboard" element={<DashboardPage />} />
-          <Route path="/practice" element={<DashboardPage />} />
+          <Route path="/practice" element={<PracticePage />} />
+          <Route
+            path="/practice/:contestId"
+            element={<PracticeContestPage />}
+          />
           <Route path="/problems" element={<DashboardPage />} />
           <Route path="/contests" element={<DashboardPage />} />
           <Route path="/leaderboard" element={<DashboardPage />} />

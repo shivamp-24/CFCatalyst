@@ -447,3 +447,55 @@ This project aims to develop a web application that helps users prepare for Code
       - Sidebar with performance insights (progress bars) and recommended problems based on user performance.
     - Uses `userApi` for fetching dashboard stats and recent contests, with toast notifications for success/error states.
     - Includes loading states, mock data fallback for contests, and relative date formatting.
+
+### Day 11: Practice Contest Enhancements and UI Component Integration
+
+- **Backend Enhancements**:
+
+  - Updated `controllers/practiceContestController.js`:
+    - Enhanced `generateContest` endpoint to support advanced problem selection based on `generationMode` (`GENERAL`, `USER_TAGS`, `WEAK_TOPIC`, `CONTEST_SIMULATION`), incorporating user-specified tags, weak topics, and contest format.
+    - Improved `startContest` and `completeContest` endpoints to validate contest state transitions and update user’s `practiceContestHistory` in the `User` model.
+    - Added `accessEditorial` endpoint to track editorial access per problem, updating `editorialAccessed` in the contest’s problem data.
+    - Enhanced `syncSubmissions` endpoint to sync Codeforces submissions for a contest, updating `solved` status for problems based on verdict.
+    - Improved error handling for invalid contest IDs, insufficient problems, and Codeforces API errors, with detailed error messages.
+  - Updated `utils/problemSelection.js`:
+    - Optimized problem selection algorithm to ensure balanced difficulty distribution within the specified rating range (`userMinRating`, `userMaxRating`).
+    - Added support for `WEAK_TOPIC` mode by prioritizing problems from user’s weak topics (derived from performance analysis).
+    - Enhanced `CONTEST_SIMULATION` mode to mimic Codeforces contest formats (e.g., `Div. 1`, `Div. 2`) with appropriate problem counts and rating distributions.
+    - Improved tag-based filtering for `USER_TAGS` mode to handle edge cases (e.g., no problems matching criteria).
+
+- **Frontend Enhancements**:
+  - Updated `src/App.jsx`:
+    - Added route for `/practice/:contestId` to support the new `PracticeContestPage.jsx`, ensuring seamless navigation to specific practice contests.
+    - Maintained `PrivateRoute` protection for practice-related routes, leveraging existing authentication logic.
+  - Updated `src/api/apiService.js`:
+    - Enhanced `practiceContestApi` with robust error handling for contest generation, fetching, starting, completing, and syncing submissions.
+    - Added query parameter support for `getUserContests` (e.g., `page`, `limit`, `status`) to fetch paginated practice contests with optional status filtering.
+    - Ensured all API calls include JWT token via `axios` interceptor for authenticated requests.
+  - Created `src/components/ui/checkbox.jsx`, `radio-group.jsx`, `select.jsx`, `slider.jsx`:
+    - Installed via `npx shadcn@latest add` to provide reusable UI components for forms and inputs.
+    - `checkbox.jsx`: Implements a customizable checkbox for tag selection in `PracticePage.jsx`.
+    - `radio-group.jsx`: Supports radio button selection for contest generation modes (e.g., `GENERAL`, `USER_TAGS`).
+    - `select.jsx`: Provides dropdown functionality for contest type and duration selection.
+    - `slider.jsx`: Enables interactive range selection for problem count and rating range.
+    - All components styled with Tailwind CSS for consistency with existing UI.
+  - Created `src/pages/PracticePage.jsx`:
+    - Implemented a comprehensive practice contest generator UI with:
+      - Radio buttons for selecting generation mode (`GENERAL`, `USER_TAGS`, `WEAK_TOPIC`, `CONTEST_SIMULATION`).
+      - Sliders and inputs for configuring rating range (`800-3500`) and problem count (`3-8`).
+      - Select dropdown for contest duration (`1-3 hours`) and contest type (e.g., `Div. 1`, `Div. 2`) in `CONTEST_SIMULATION` mode.
+      - Checkbox grid for tag selection in `USER_TAGS` mode, using common Codeforces tags (e.g., `dp`, `graphs`).
+      - Mock weak topics display in `WEAK_TOPIC` mode with hardcoded performance data (e.g., `Dynamic Programming: 45%`).
+      - Sidebar with contest preview and recent contests list (limited to 3), fetched via `practiceContestApi.getUserContests`.
+      - Generate button to create a new contest, navigating to `/practice/:contestId` upon success.
+    - Integrated `useToast` for success, warning, and error notifications (e.g., no tags selected, no problems found).
+    - Handles loading states and errors with user-friendly messages.
+  - Created `src/pages/PracticeContestPage.jsx`:
+    - Implemented a detailed view for individual practice contests with:
+      - Contest header showing mode (e.g., `General Practice`, `Div. 2 Simulation`), duration, and start time.
+      - Status card displaying contest state (`PENDING`, `ONGOING`, `COMPLETED`, `ABANDONED`) and start/complete actions.
+      - Problem list with cards showing problem name, rating, tags, solved status, and editorial access, with links to Codeforces problems.
+      - Details card summarizing contest parameters (mode, rating range, tags, contest type).
+      - Time remaining display for ongoing contests, calculated from `startTime` and `durationMinutes`.
+    - Uses `practiceContestApi` for fetching contest data, starting contests, and handling errors with toast notifications.
+    - Responsive design with Tailwind CSS, integrated with `DashboardLayout` for consistent layout.
