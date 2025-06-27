@@ -113,6 +113,19 @@ const userSchema = new mongoose.Schema(
       },
       lastFullUpdate: { type: Date, default: null },
     },
+    // Weak topics data
+    weakTopics: {
+      topics: [
+        {
+          name: String,
+          successRate: Number,
+          total: Number,
+          accepted: Number,
+          rejected: Number,
+        },
+      ],
+      lastUpdated: { type: Date, default: null },
+    },
   },
   { timestamps: true } // Adds createdAt and updatedAt
 );

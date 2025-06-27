@@ -3,6 +3,7 @@ const User = require("../models/User");
 const Contest = require("../models/Contest");
 const codeforcesService = require("../services/codeforcesService");
 const dashboardStatsService = require("../services/dashboardStatsService");
+const { getUserWeakTopics } = require("../utils/problemSelection");
 
 // @desc    Get user profile by Codeforces handle
 // @route   GET /api/users/profile/:codeforcesHandle
@@ -452,6 +453,104 @@ const formatContestsWithAccurateProblemCounts = async (contests) => {
   });
 };
 
+// @desc    Get user's weak topics based on submission history
+// @route   GET /api/users/me/weak-topics
+const getWeakTopics = async (req, res) => {
+  const userId = req.user.id;
+  const { refresh } = req.query; // Optional query param to force refresh
+
+  try {
+    // Find the user
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: "User not found." });
+    }
+
+    // Check if we need to refresh weak topics
+    const needsRefresh =
+      refresh === "true" ||
+      !user.weakTopics ||
+      !user.weakTopics.lastUpdated ||
+      !user.weakTopics.topics ||
+      user.weakTopics.topics.length === 0 ||
+      // Refresh if older than 24 hours
+      new Date() - new Date(user.weakTopics.lastUpdated) > 24 * 60 * 60 * 1000;
+
+    let weakTopics = [];
+
+    if (needsRefresh) {
+      // Get weak topics using the utility function
+      weakTopics = await getUserWeakTopics(user.codeforcesHandle);
+
+      // Log the weak topics data to debug
+      console.log(
+        `Weak topics data for ${user.codeforcesHandle}:`,
+        JSON.stringify(weakTopics)
+      );
+
+      // Ensure the data is in the correct format
+      const formattedTopics = weakTopics.map((topic) => ({
+        name: topic.name,
+        successRate: topic.successRate,
+        total: topic.total,
+        accepted: topic.accepted,
+        rejected: topic.rejected,
+      }));
+
+      // Update user model with the new weak topics
+      user.weakTopics = {
+        topics: formattedTopics,
+        lastUpdated: new Date(),
+      };
+
+      await user.save();
+
+      // Use the formatted topics
+      weakTopics = formattedTopics;
+
+      console.log(
+        `Refreshed weak topics for user ${userId}. Data saved:`,
+        JSON.stringify(user.weakTopics)
+      );
+    } else {
+      // Use cached weak topics
+      weakTopics = user.weakTopics.topics || [];
+      console.log(
+        `Using cached weak topics for user ${userId} from ${user.weakTopics.lastUpdated}. Data:`,
+        JSON.stringify(weakTopics)
+      );
+    }
+
+    // Add status to each topic
+    const topicsWithStatus = weakTopics.map((topic) => ({
+      ...topic,
+      status: getTopicStatus(topic.successRate),
+    }));
+
+    res.json({
+      weakTopics: topicsWithStatus,
+      lastUpdated: user.weakTopics.lastUpdated,
+      fromCache: !needsRefresh,
+    });
+  } catch (error) {
+    console.error(
+      `Error fetching weak topics for user ${userId}:`,
+      error.message
+    );
+    res
+      .status(500)
+      .json({ message: "Server error while fetching weak topics." });
+  }
+};
+
+// Helper function to determine topic status based on success rate
+const getTopicStatus = (successRate) => {
+  if (successRate < 50) return "critical";
+  if (successRate < 60) return "poor";
+  if (successRate < 70) return "needs-improvement";
+  return "average";
+};
+
 module.exports = {
   getProfile,
   updateProfile,
@@ -460,4 +559,5 @@ module.exports = {
   getDashboardStats,
   updateDashboardStats,
   getRecentContests,
+  getWeakTopics,
 };

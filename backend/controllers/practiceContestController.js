@@ -121,6 +121,19 @@ const generatePracticeContest = async (req, res) => {
       });
     }
 
+    // Sort problems by rating in ascending order
+    const sortedProblems = [...selectedProblemsFromUtil].sort((a, b) => {
+      // Handle cases where rating might be missing
+      const ratingA = a.rating || 0;
+      const ratingB = b.rating || 0;
+      return ratingA - ratingB;
+    });
+
+    console.log(
+      "Problems sorted by rating in ascending order:",
+      sortedProblems.map((p) => ({ name: p.name, rating: p.rating }))
+    );
+
     // Construct detailed contestTypeParams using details from selectionResult
     const contestTypeParams = {
       requestedGenerationMode: generationMode.toUpperCase(), // Mode user asked for
@@ -142,8 +155,8 @@ const generatePracticeContest = async (req, res) => {
       contestTypeParams.userSpecifiedTags =
         selectionResult.userSpecifiedTagsUsed;
     }
-    if (selectionResult.targetedWeakTags) {
-      contestTypeParams.targetedWeakTags = selectionResult.targetedWeakTags;
+    if (selectionResult.targetedWeakTopics) {
+      contestTypeParams.targetedWeakTopics = selectionResult.targetedWeakTopics;
     }
     if (selectionResult.generationModeUsed === "CONTEST_SIMULATION") {
       contestTypeParams.targetContestFormatUsed =
@@ -159,7 +172,7 @@ const generatePracticeContest = async (req, res) => {
 
     const practiceContest = new PracticeContest({
       user: req.user.id,
-      problems: selectedProblemsFromUtil.map((p) => ({
+      problems: sortedProblems.map((p) => ({
         problem: p._id,
       })),
       durationMinutes: parseInt(durationMinutes),

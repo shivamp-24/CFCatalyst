@@ -26,5 +26,6 @@ userRouter.get(
   authMiddleware,
   userController.getRecentContests
 );
+userRouter.get("/me/weak-topics", authMiddleware, userController.getWeakTopics);
 
 module.exports = userRouter;

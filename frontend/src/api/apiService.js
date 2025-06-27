@@ -72,6 +72,14 @@ export const userApi = {
     );
     return response.data;
   },
+
+  // Get user's weak topics based on submission history
+  getWeakTopics: async (refresh = false) => {
+    const response = await apiService.get(
+      `/users/me/weak-topics${refresh ? "?refresh=true" : ""}`
+    );
+    return response.data;
+  },
 };
 
 // Practice Contest related API functions

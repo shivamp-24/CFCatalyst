@@ -499,3 +499,64 @@ This project aims to develop a web application that helps users prepare for Code
       - Time remaining display for ongoing contests, calculated from `startTime` and `durationMinutes`.
     - Uses `practiceContestApi` for fetching contest data, starting contests, and handling errors with toast notifications.
     - Responsive design with Tailwind CSS, integrated with `DashboardLayout` for consistent layout.
+
+# Day 12: Competitive Programming Practice Platform Enhancements
+
+### Backend Updates
+
+1. **Practice Contest Controller (`practiceContestController.js`)**
+
+   - Enhanced the `generatePracticeContest` function to include better error handling and logging for problem selection.
+   - Added validation for `durationMinutes` to ensure it's a positive number.
+   - Improved the `contestTypeParams` object to include more detailed metadata about the contest generation process.
+
+2. **User Controller (`userController.js`)**
+
+   - Updated the `getWeakTopics` function to handle edge cases where no submission history is available.
+   - Added caching logic to reduce API calls to Codeforces, improving performance for `getCFStats` and `getRecentContests`.
+   - Fixed a bug in `formatContestsWithAccurateProblemCounts` to handle missing contest data more gracefully.
+
+3. **User Model (`User.js`)**
+
+   - Added a new field `weakTopics` to store cached weak topic analysis, reducing redundant API calls.
+   - Updated the `dashboardStats` schema to include timestamps for better tracking of updates.
+
+4. **User Routes (`user.routes.js`)**
+
+   - Added a new route `/api/users/me/weak-topics` to allow users to fetch their weak topics based on submission history.
+   - Ensured all routes are protected with `authMiddleware` for secure access.
+
+5. **Problem Selection Utility (`problemSelection.js`)**
+   - Implemented the `getUserWeakTopics` function to analyze user submissions and identify weak topics based on success rates.
+   - Enhanced the `selectProblems` function to support multiple modes (`GENERAL`, `USER_TAGS`, `WEAK_TOPIC`, `CONTEST_SIMULATION`) with refined rating range logic.
+   - Added fallback mechanisms for `CONTEST_SIMULATION` mode when contest profile data is insufficient.
+
+### Frontend Updates
+
+1. **API Service (`apiService.js`)**
+
+   - Added new API methods for fetching weak topics and syncing practice contest submissions.
+   - Improved error handling in API calls to provide more user-friendly error messages.
+
+2. **Slider Component (`slider.jsx`)**
+
+   - Updated the `Slider` component to support range selection for rating ranges, improving usability in the contest generation form.
+   - Added visual feedback for slider handles to enhance user interaction.
+
+3. **Global Styles (`index.css`)**
+
+   - Added new gradient backgrounds and improved styling for cards and buttons to enhance visual appeal.
+   - Fixed responsive design issues for better mobile compatibility.
+
+4. **Practice Contest Page (`PracticeContestPage.jsx`)**
+
+   - Added a timer for ongoing contests to display remaining time.
+   - Implemented automatic submission syncing for ongoing contests using a periodic interval.
+   - Improved the problem list UI to show solved status and editorial access indicators.
+   - Fixed navigation issues when contests fail to load.
+
+5. **Practice Page (`PracticePage.jsx`)**
+   - Revamped the contest generation form with a new card-based layout and gradient styling.
+   - Added support for selecting weak topics in `WEAK_TOPIC` mode, with a refresh button to update analysis.
+   - Improved the recent contests section to display more detailed contest information, including mode and status.
+   - Added validation for rating range inputs to prevent invalid submissions.

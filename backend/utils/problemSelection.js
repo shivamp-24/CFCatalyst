@@ -1,6 +1,7 @@
 const codeforcesService = require("../services/codeforcesService");
 const Problem = require("../models/Problem");
 const contestAnalysisService = require("../services/contestAnalysisService");
+const User = require("../models/User");
 
 // Selects problems for a practice contest based on specified criteria.
 
@@ -169,31 +170,61 @@ const selectProblems = async (
         };
 
         try {
-          const weakTagsResult =
-            await contestAnalysisService.identifyUserWeakTags(
-              userCodeforcesHandle
+          // First check if the user has cached weak topics
+          const user = await User.findOne({
+            codeforcesHandle: userCodeforcesHandle,
+          });
+          let weakTopics = [];
+
+          if (
+            user &&
+            user.weakTopics &&
+            user.weakTopics.topics &&
+            user.weakTopics.topics.length > 0
+          ) {
+            // Use cached weak topics
+            weakTopics = user.weakTopics.topics;
+            console.log(
+              `[problemSelection] Using cached weak topics for ${userCodeforcesHandle} from ${user.weakTopics.lastUpdated}`
+            );
+          } else {
+            // Fetch weak topics if not cached
+            weakTopics = await getUserWeakTopics(userCodeforcesHandle);
+            console.log(
+              `[problemSelection] Fetched new weak topics for ${userCodeforcesHandle}`
             );
 
-          if (weakTagsResult && weakTagsResult.length > 0) {
-            tagsToQuery = weakTagsResult
-              .slice(0, MAX_WEAK_TAGS_TO_CONSIDER)
-              .map((item) => item.tag);
+            // Cache the weak topics if user exists
+            if (user) {
+              user.weakTopics = {
+                topics: weakTopics,
+                lastUpdated: new Date(),
+              };
+              await user.save();
+              console.log(
+                `[problemSelection] Cached weak topics for ${userCodeforcesHandle}`
+              );
+            }
+          }
+
+          if (weakTopics && weakTopics.length > 0) {
+            tagsToQuery = weakTopics.map((item) => item.name);
             console.log(
-              `[problemSelection] Identified weak tags to target: ${tagsToQuery}`
+              `[problemSelection] Identified weak topics to target: ${tagsToQuery}`
             );
             if (tagsToQuery.length === 0) {
               console.log(
-                "[problemSelection] No actionable weak tags found after processing. Behaving like GENERAL mode."
+                "[problemSelection] No actionable weak topics found after processing. Behaving like GENERAL mode."
               );
             }
           } else {
             console.log(
-              "[problemSelection] No weak tags identified for the user. Behaving like GENERAL mode."
+              "[problemSelection] No weak topics identified for the user. Behaving like GENERAL mode."
             );
           }
         } catch (error) {
           console.error(
-            `[problemSelection] Error identifying weak tags: ${error.message}. Behaving like GENERAL mode.`
+            `[problemSelection] Error identifying weak topics: ${error.message}. Behaving like GENERAL mode.`
           );
         }
         break;
@@ -458,7 +489,7 @@ const selectProblems = async (
         generationMode.toUpperCase() === "WEAK_TOPIC" &&
         tagsToQuery.length > 0
       ) {
-        errorMessage += ` (Targeted weak tags: ${tagsToQuery.join(
+        errorMessage += ` (Targeted weak topics: ${tagsToQuery.join(
           ", "
         )}, Rating: ${effectiveMinRating}-${effectiveMaxRating}). Please try adjusting rating or try GENERAL mode.`;
       } else if (
@@ -501,7 +532,7 @@ const selectProblems = async (
       generationMode.toUpperCase() === "WEAK_TOPIC" &&
       tagsToQuery.length > 0
     ) {
-      selectionResult.targetedWeakTags = tagsToQuery;
+      selectionResult.targetedWeakTopics = tagsToQuery;
     }
 
     if (
@@ -543,4 +574,83 @@ const selectProblems = async (
   }
 };
 
-module.exports = { selectProblems };
+/**
+ * Get weak topics for a user from their submission history
+ * @param {string} userCodeforcesHandle - User's Codeforces handle
+ * @returns {Promise<Array>} - Array of weak topics
+ */
+const getUserWeakTopics = async (userCodeforcesHandle) => {
+  try {
+    // Get user submissions from Codeforces
+    const submissions = await codeforcesService.getUserSubmissions(
+      userCodeforcesHandle
+    );
+
+    console.log(
+      `[getUserWeakTopics] Processing ${submissions.length} submissions for ${userCodeforcesHandle}`
+    );
+
+    // Group submissions by problem tags
+    const tagStats = {};
+
+    submissions.forEach((submission) => {
+      if (!submission.problem.tags || submission.problem.tags.length === 0)
+        return;
+
+      submission.problem.tags.forEach((tag) => {
+        if (!tagStats[tag]) {
+          tagStats[tag] = {
+            total: 0,
+            accepted: 0,
+            rejected: 0,
+            successRate: 0,
+          };
+        }
+
+        tagStats[tag].total++;
+        if (submission.verdict === "OK") {
+          tagStats[tag].accepted++;
+        } else {
+          tagStats[tag].rejected++;
+        }
+      });
+    });
+
+    // Calculate success rate for each tag
+    Object.keys(tagStats).forEach((tag) => {
+      const stats = tagStats[tag];
+      stats.successRate =
+        stats.total > 0 ? Math.round((stats.accepted / stats.total) * 100) : 0;
+    });
+
+    // Get weak topics (tags with at least 5 submissions and success rate below 70%)
+    const weakTopics = Object.keys(tagStats)
+      .filter(
+        (tag) => tagStats[tag].total >= 5 && tagStats[tag].successRate < 70
+      )
+      .map((tag) => ({
+        name: tag,
+        successRate: tagStats[tag].successRate,
+        total: tagStats[tag].total,
+        accepted: tagStats[tag].accepted,
+        rejected: tagStats[tag].rejected,
+      }))
+      .sort((a, b) => a.successRate - b.successRate)
+      .slice(0, 5); // Get top 5 weakest topics
+
+    console.log(
+      `[getUserWeakTopics] Found ${weakTopics.length} weak topics for ${userCodeforcesHandle}:`,
+      JSON.stringify(weakTopics)
+    );
+
+    return weakTopics;
+  } catch (error) {
+    console.error(
+      `Error getting weak topics for ${userCodeforcesHandle}:`,
+      error
+    );
+    return [];
+  }
+};
+
+module.exports = { selectProblems, getUserWeakTopics };
