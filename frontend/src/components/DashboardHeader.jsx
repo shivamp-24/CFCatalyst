@@ -50,6 +50,7 @@ const DashboardHeader = () => {
     { path: "/practice", label: "Practice" },
     { path: "/problems", label: "Problems" },
     { path: "/contests", label: "Contests" },
+    { path: "/contest-history", label: "History" },
     { path: "/leaderboard", label: "Leaderboard" },
   ];
 

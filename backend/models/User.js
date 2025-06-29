@@ -65,6 +65,15 @@ const userSchema = new mongoose.Schema(
       ],
       lastUpdated: { type: Date, default: null },
     },
+    // Cached Codeforces submissions
+    cfSubmissions: {
+      submissions: [
+        {
+          type: Object, // Store the entire submission object as-is
+        },
+      ],
+      lastUpdated: { type: Date, default: null },
+    },
     // Dashboard statistics
     dashboardStats: {
       // Problems solved statistics

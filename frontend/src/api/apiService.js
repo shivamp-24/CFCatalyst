@@ -73,6 +73,30 @@ export const userApi = {
     return response.data;
   },
 
+  // Get all user's contests with filtering options
+  getAllContests: async (options = {}) => {
+    const {
+      timeFilter = "all-time",
+      sortBy = "date-desc",
+      contestType = "all",
+      refresh = false,
+      page = 1,
+    } = options;
+
+    const queryParams = new URLSearchParams({
+      timeFilter,
+      sortBy,
+      contestType,
+      refresh: refresh.toString(),
+      page: page.toString(),
+    });
+
+    const response = await apiService.get(
+      `/users/me/all-contests?${queryParams}`
+    );
+    return response.data;
+  },
+
   // Get user's weak topics based on submission history
   getWeakTopics: async (refresh = false) => {
     const response = await apiService.get(

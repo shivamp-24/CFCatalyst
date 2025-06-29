@@ -8,6 +8,8 @@ import { Toaster } from "./components/ui/toaster";
 import useScrollToTop from "./hooks/useScrollToTop";
 import PracticePage from "./pages/PracticePage";
 import PracticeContestPage from "./pages/PracticeContestPage";
+import ProfilePage from "./pages/ProfilePage";
+import ContestHistoryPage from "./pages/ContestHistoryPage";
 
 function App() {
   // Use the scroll to top hook
@@ -32,7 +34,8 @@ function App() {
           <Route path="/problems" element={<DashboardPage />} />
           <Route path="/contests" element={<DashboardPage />} />
           <Route path="/leaderboard" element={<DashboardPage />} />
-          <Route path="/profile" element={<DashboardPage />} />
+          <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/contest-history" element={<ContestHistoryPage />} />
           <Route path="/settings" element={<DashboardPage />} />
         </Route>
       </Routes>

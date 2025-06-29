@@ -462,11 +462,11 @@ const DashboardPage = () => {
                       ) : (
                         <div className="flex flex-col items-end">
                           <div className="text-sm font-medium text-purple-700">
-                            {contest.performance}% performance
+                          Performance Rating: {contest.performanceRating}
                           </div>
                           {contest.id && (
                             <Link
-                              to={`/practice-contests/${contest.id}`}
+                              to={`/practice/${contest.id}`}
                               className="text-xs text-blue-600 hover:underline flex items-center gap-0.5"
                             >
                               View details
