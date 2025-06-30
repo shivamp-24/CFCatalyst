@@ -11,6 +11,7 @@ const problemRouter = require("./routes/problem.routes");
 const contestRouter = require("./routes/contest.routes");
 const practiceContestRouter = require("./routes/practiceContest.routes");
 const submissionRouter = require("./routes/submission.routes");
+const adminRoutes = require("./routes/admin.routes");
 
 const app = express();
 
@@ -29,6 +30,7 @@ app.use("/api/problems", problemRouter);
 app.use("/api/contests", contestRouter);
 app.use("/api/practice-contests", practiceContestRouter);
 app.use("/api/submissions", submissionRouter);
+app.use("/api/admin", adminRoutes);
 
 // Basic Root Route for testing if server is up
 app.get("/", (req, res) => {
@@ -41,7 +43,6 @@ const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
   console.log(`Access API at http://localhost:${PORT}`);
-  console.log(`Current User: shivamp-24`);
   console.log(`Server Start Time (UTC): ${new Date().toISOString()}`);
 });
 

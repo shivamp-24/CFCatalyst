@@ -17,7 +17,27 @@ const getProfile = async (req, res) => {
     if (user) {
       //merge info with cfData
       const cfData = await codeforcesService.getUserInfo(codeforcesHandle);
-      const profileData = { ...user.toObject(), ...cfData };
+
+      // Create a comprehensive profile object with all available fields
+      const profileData = {
+        ...user.toObject(),
+        ...cfData,
+        // Ensure these important fields are available even if null
+        solvedProblems: user.solvedProblems || [],
+        practiceContestHistory: user.practiceContestHistory || [],
+        codeforcesRating: cfData.rating || user.codeforcesRating || 0,
+        maxRating: cfData.maxRating || user.maxRating || 0,
+        avatar: cfData.avatar || user.avatar,
+        titlePhoto: cfData.titlePhoto || user.titlePhoto,
+        rank: cfData.rank,
+        maxRank: cfData.maxRank,
+        handle: cfData.handle || user.codeforcesHandle,
+        contribution: cfData.contribution,
+        friendOfCount: cfData.friendOfCount,
+        lastOnlineTimeSeconds: cfData.lastOnlineTimeSeconds,
+        registrationTimeSeconds: cfData.registrationTimeSeconds,
+      };
+
       return res.json(profileData);
     } else {
       // user not found in DB -> fetch from CF API
@@ -25,11 +45,18 @@ const getProfile = async (req, res) => {
       if (cfData) {
         return res.json({
           codeforcesHandle: cfData.handle, // CF API uses 'handle'
-          codeforcesRating: cfData.rating,
-          maxRating: cfData.maxRating,
+          codeforcesRating: cfData.rating || 0,
+          maxRating: cfData.maxRating || 0,
+          avatar: cfData.avatar,
+          titlePhoto: cfData.titlePhoto,
           rank: cfData.rank,
           maxRank: cfData.maxRank,
-          avatar: cfData.avatar,
+          contribution: cfData.contribution,
+          friendOfCount: cfData.friendOfCount,
+          lastOnlineTimeSeconds: cfData.lastOnlineTimeSeconds,
+          registrationTimeSeconds: cfData.registrationTimeSeconds,
+          solvedProblems: [],
+          practiceContestHistory: [],
         });
       } else {
         return res
@@ -123,25 +150,43 @@ const getCFStats = async (req, res) => {
       if (
         user.codeforcesRating !== cfData.rating ||
         user.maxRating !== cfData.maxRating ||
-        user.avatar !== cfData.avatar
+        user.avatar !== cfData.avatar ||
+        user.titlePhoto !== cfData.titlePhoto
       ) {
-        user.codeforcesRating = cfData.rating;
-        user.maxRating = cfData.maxRating;
-        user.avatar = cfData.avatar;
-        user.titlePhoto = cfData.titlePhoto;
+        user.codeforcesRating = cfData.rating || user.codeforcesRating;
+        user.maxRating = cfData.maxRating || user.maxRating;
+        user.avatar = cfData.avatar || user.avatar;
+        user.titlePhoto = cfData.titlePhoto || user.titlePhoto;
         await user.save();
         updatedInDb = true;
       }
 
+      // Comprehensive data from both user model and CF API
       res.json({
+        // User model data
+        id: user._id,
         codeforcesHandle: user.codeforcesHandle,
-        currentRating: cfData.rating,
-        maxRating: cfData.maxRating,
+        email: user.email,
+        name: user.name,
+        bio: user.bio,
+        country: user.country,
+        role: user.role,
+        solvedProblems: user.solvedProblems || [],
+        practiceContestHistory: user.practiceContestHistory || [],
+
+        // CF data
+        currentRating: cfData.rating || user.codeforcesRating || 0,
+        maxRating: cfData.maxRating || user.maxRating || 0,
         rank: cfData.rank,
         maxRank: cfData.maxRank,
-        avatar: user.avatar,
-        lastOnlineTimeSeconds: cfData.lastOnlineTimeSeconds,
+        avatar: cfData.avatar || user.avatar,
+        titlePhoto: cfData.titlePhoto || user.titlePhoto,
+        contribution: cfData.contribution,
         friendOfCount: cfData.friendOfCount,
+        lastOnlineTimeSeconds: cfData.lastOnlineTimeSeconds,
+        registrationTimeSeconds: cfData.registrationTimeSeconds,
+
+        // Meta information
         source: "Codeforces API",
         updatedInLocalDB: updatedInDb,
         localDataLastChecked: new Date().toISOString(),

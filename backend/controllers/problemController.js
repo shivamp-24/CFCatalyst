@@ -73,34 +73,4 @@ const getProblem = async (req, res) => {
   }
 };
 
-// @desc    Sync problems from Codeforces API to local DB
-// @route   POST /api/problems/sync
-const syncProblems = async (req, res) => {
-  try {
-    console.log("Problem sync initiated by admin:", req.user.id);
-
-    const { newProblemsCount, updateProblemsCount, totalProblemsProcessed } =
-      await codeforcesService.syncProblems();
-
-    res.json({
-      message: "Problem synchronization complete",
-      newProblemsAdded: newProblemsCount,
-      existingProblemsUpdated: updateProblemsCount,
-      totalProblemsProcessedInBatch: totalProblemsProcessed,
-    });
-  } catch (error) {
-    console.error(
-      "Error during problems synchronization:",
-      error.message,
-      error.stack
-    );
-    if (error.message.includes("Codeforces API error")) {
-      return res.status(502).json({ message: error.message });
-    }
-    res
-      .status(500)
-      .json({ message: "Server error during problems synchronization." });
-  }
-};
-
-module.exports = { getProblems, getProblem, syncProblems };
+module.exports = { getProblems, getProblem };

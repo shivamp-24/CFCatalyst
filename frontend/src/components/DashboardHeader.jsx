@@ -11,6 +11,7 @@ import {
   Activity,
   Calendar,
   Loader2,
+  Shield,
 } from "lucide-react";
 import useAuth from "@/hooks/useAuth";
 
@@ -251,53 +252,66 @@ const DashboardHeader = () => {
                   </div>
                 </div>
 
-                {/* Menu items */}
+                {/* Menu options */}
                 <div className="py-2">
                   <Link
                     to="/profile"
-                    className="flex items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                    className="flex items-center gap-3 px-5 py-2.5 hover:bg-gray-50 transition-colors text-gray-700"
                     onClick={() => setProfileDropdownOpen(false)}
                   >
-                    <User className="h-4 w-4 mr-3 text-gray-500" />
-                    Your Profile
+                    <User className="h-4 w-4 text-gray-500" />
+                    <span>Profile</span>
                   </Link>
-                  <Link
-                    to="/activity"
-                    className="flex items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                    onClick={() => setProfileDropdownOpen(false)}
-                  >
-                    <Activity className="h-4 w-4 mr-3 text-gray-500" />
-                    Activity Log
-                  </Link>
-                  <Link
-                    to="/schedule"
-                    className="flex items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                    onClick={() => setProfileDropdownOpen(false)}
-                  >
-                    <Calendar className="h-4 w-4 mr-3 text-gray-500" />
-                    Contest Schedule
-                  </Link>
+
+                  {/* Admin link - only visible to admins */}
+                  {user?.role === "admin" && (
+                    <Link
+                      to="/admin"
+                      className="flex items-center gap-3 px-5 py-2.5 hover:bg-gray-50 transition-colors text-gray-700"
+                      onClick={() => setProfileDropdownOpen(false)}
+                    >
+                      <Shield className="h-4 w-4 text-blue-500" />
+                      <span className="font-medium text-blue-600">
+                        Admin Dashboard
+                      </span>
+                    </Link>
+                  )}
+
                   <Link
                     to="/settings"
-                    className="flex items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                    className="flex items-center gap-3 px-5 py-2.5 hover:bg-gray-50 transition-colors text-gray-700"
                     onClick={() => setProfileDropdownOpen(false)}
                   >
-                    <Settings className="h-4 w-4 mr-3 text-gray-500" />
-                    Settings
+                    <Settings className="h-4 w-4 text-gray-500" />
+                    <span>Settings</span>
                   </Link>
-                </div>
 
-                {/* Sign out button */}
-                <div className="border-t border-gray-100 bg-gray-50">
+                  <Link
+                    to="/contest-history"
+                    className="flex items-center gap-3 px-5 py-2.5 hover:bg-gray-50 transition-colors text-gray-700"
+                    onClick={() => setProfileDropdownOpen(false)}
+                  >
+                    <Calendar className="h-4 w-4 text-gray-500" />
+                    <span>Contest History</span>
+                  </Link>
+
                   <button
                     onClick={() => {
-                      setProfileDropdownOpen(false);
-                      logout();
+                      setIsLoading(true);
+                      setTimeout(() => {
+                        logout();
+                        setIsLoading(false);
+                      }, 800);
                     }}
-                    className="flex w-full items-center px-4 py-2.5 text-sm text-red-600 hover:bg-gray-100 transition-colors"
+                    disabled={isLoading}
+                    className="w-full flex items-center gap-3 px-5 py-2.5 hover:bg-red-50 transition-colors text-red-600 mt-1 border-t border-gray-100"
                   >
-                    <LogOut className="h-4 w-4 mr-3 text-red-500" />
-                    Sign Out
+                    {isLoading ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <LogOut className="h-4 w-4" />
+                    )}
+                    <span>{isLoading ? "Logging out..." : "Logout"}</span>
                   </button>
                 </div>
               </div>

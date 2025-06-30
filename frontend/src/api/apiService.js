@@ -3,7 +3,7 @@
 import axios from "axios";
 
 const apiService = axios.create({
-  baseURL: import.meta.env.VITE_BACKEND_URL || "http://localhost:5000/api",
+  baseURL: import.meta.env.VITE_BACKEND_URL,
 });
 
 // Interceptor to add the JWT token to every request if it exists

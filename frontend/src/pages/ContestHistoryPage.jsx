@@ -36,13 +36,28 @@ import {
   ChevronLeft,
   ChevronsLeft,
   ChevronsRight,
+  Award,
+  Filter,
+  FileText,
+  Link2,
+  Twitter,
+  Linkedin,
 } from "lucide-react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { userApi } from "@/api/apiService";
 import { useToast } from "@/hooks/use-toast";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { Label } from "@/components/ui/label";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const ContestHistoryPage = () => {
+  const navigate = useNavigate();
   const { toast } = useToast();
   const [timeFilter, setTimeFilter] = useState("all-time");
   const [sortBy, setSortBy] = useState("date-desc");
@@ -225,24 +240,187 @@ const ContestHistoryPage = () => {
     return pageNumbers;
   };
 
+  // Function to handle data export
+  const handleExport = async (format) => {
+    try {
+      toast({
+        title: "Preparing Export",
+        description: "Gathering your contest history data...",
+      });
+
+      // Get total pages from current pagination
+      const totalPages = pagination.totalPages;
+      let allContests = [];
+
+      // Fetch all pages based on current filters
+      for (let page = 1; page <= totalPages; page++) {
+        const response = await userApi.getAllContests({
+          timeFilter,
+          sortBy,
+          contestType,
+          refresh: false,
+          page,
+        });
+        allContests = [...allContests, ...response.contests];
+      }
+
+      let fileName;
+      let fileContent;
+
+      if (format === "csv") {
+        // Convert data to CSV format
+        const headers = [
+          "Contest Name",
+          "Date",
+          "Type",
+          "Problems Solved",
+          "Total Problems",
+          "Rating Change",
+          "Performance",
+          "Rank",
+          "Duration",
+        ];
+        const rows = allContests.map((contest) => [
+          contest.name,
+          formatDate(contest.date),
+          contest.type,
+          contest.problems.solved,
+          contest.problems.total,
+          contest.rating || "",
+          contest.performanceRating || "",
+          contest.rank || "",
+          contest.durationFormatted || "",
+        ]);
+
+        fileContent = [headers, ...rows]
+          .map((row) =>
+            row
+              .map((cell) =>
+                typeof cell === "string" && cell.includes(",")
+                  ? `"${cell}"`
+                  : cell
+              )
+              .join(",")
+          )
+          .join("\n");
+        fileName = `contest-history-${timeFilter}-${contestType}-${
+          new Date().toISOString().split("T")[0]
+        }.csv`;
+      } else {
+        // JSON format
+        const exportData = {
+          exportDate: new Date().toISOString(),
+          filters: {
+            timeFilter,
+            sortBy,
+            contestType,
+          },
+          stats,
+          contests: allContests,
+        };
+        fileContent = JSON.stringify(exportData, null, 2);
+        fileName = `contest-history-${timeFilter}-${contestType}-${
+          new Date().toISOString().split("T")[0]
+        }.json`;
+      }
+
+      // Create and trigger download
+      const blob = new Blob([fileContent], {
+        type: format === "csv" ? "text/csv" : "application/json",
+      });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      toast({
+        title: "Export Successful",
+        description: `Your contest history has been exported as ${format.toUpperCase()}`,
+      });
+    } catch (error) {
+      console.error("Export failed:", error);
+      toast({
+        title: "Export Failed",
+        description: "There was an error exporting your contest history",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Function to handle sharing
+  const handleShare = async (method) => {
+    try {
+      const shareData = {
+        title: "My Competitive Programming Progress",
+        text: `Check out my progress on CFCatalyst! Current Rating: ${stats.currentRating}, Total Contests: ${stats.totalContests}`,
+        url: window.location.href,
+      };
+
+      switch (method) {
+        case "clipboard":
+          await navigator.clipboard.writeText(shareData.url);
+          toast({
+            title: "Link Copied!",
+            description: "Share link has been copied to clipboard",
+          });
+          break;
+
+        case "twitter":
+          const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(
+            shareData.text
+          )}&url=${encodeURIComponent(shareData.url)}`;
+          window.open(twitterUrl, "_blank");
+          break;
+
+        case "linkedin":
+          const linkedinUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(
+            shareData.url
+          )}`;
+          window.open(linkedinUrl, "_blank");
+          break;
+
+        default:
+          if (navigator.share) {
+            await navigator.share(shareData);
+            toast({
+              title: "Shared Successfully",
+              description: "Your progress has been shared",
+            });
+          }
+      }
+    } catch (error) {
+      console.error("Sharing failed:", error);
+      toast({
+        title: "Sharing Failed",
+        description: "There was an error sharing your progress",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <DashboardLayout>
       <div className="container mx-auto px-4 py-6">
-        <div className="flex justify-between items-center mb-6">
+        {/* Page Header */}
+        <div className="flex justify-between items-center mb-8">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">
+            <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-2">
+              <History className="h-7 w-7 text-blue-500" />
               Contest History
             </h1>
-            <p className="text-gray-600">
-              Track your competitive programming journey
+            <p className="text-gray-600 mt-1">
+              Track your competitive programming journey and progress
             </p>
           </div>
           <Button
             variant="outline"
-            size="sm"
             onClick={handleRefresh}
             disabled={isRefreshing}
-            className="flex items-center gap-1"
+            className="flex items-center gap-2 bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100"
             title="Refresh data from Codeforces API"
           >
             <RefreshCw
@@ -253,119 +431,290 @@ const ContestHistoryPage = () => {
         </div>
 
         {/* Statistics Overview */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-          <Card>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+          <Card className="hover:shadow-md transition-shadow duration-300">
             <CardContent className="pt-6">
-              <div className="text-center">
-                <div className="text-3xl font-bold text-blue-600">
-                  {stats.totalContests}
+              <div className="flex items-center justify-between">
+                <div className="space-y-1">
+                  <p className="text-sm font-medium text-gray-500">
+                    Total Contests
+                  </p>
+                  <p className="text-2xl font-bold text-blue-600">
+                    {stats.totalContests}
+                  </p>
                 </div>
-                <div className="text-sm text-gray-600">Total Contests</div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-6">
-              <div className="text-center">
-                <div className="text-3xl font-bold text-green-600">
-                  {Number(stats.averageProblemsPerContest).toFixed(1)}
-                </div>
-                <div className="text-sm text-gray-600">
-                  Avg Problems Solved/Contest
+                <div className="p-3 bg-blue-50 rounded-full">
+                  <Trophy className="h-6 w-6 text-blue-500" />
                 </div>
               </div>
             </CardContent>
           </Card>
-          <Card>
+
+          <Card className="hover:shadow-md transition-shadow duration-300">
             <CardContent className="pt-6">
-              <div className="text-center">
-                <div className="text-3xl font-bold text-purple-600">
-                  {stats.currentRating}
+              <div className="flex items-center justify-between">
+                <div className="space-y-1">
+                  <p className="text-sm font-medium text-gray-500">
+                    Avg Problems/Contest
+                  </p>
+                  <p className="text-2xl font-bold text-green-600">
+                    {Number(stats.averageProblemsPerContest).toFixed(1)}
+                  </p>
                 </div>
-                <div className="text-sm text-gray-600">Current Rating</div>
+                <div className="p-3 bg-green-50 rounded-full">
+                  <Code className="h-6 w-6 text-green-500" />
+                </div>
               </div>
             </CardContent>
           </Card>
-          <Card>
+
+          <Card className="hover:shadow-md transition-shadow duration-300">
             <CardContent className="pt-6">
-              <div className="text-center">
+              <div className="flex items-center justify-between">
+                <div className="space-y-1">
+                  <p className="text-sm font-medium text-gray-500">
+                    Current Rating
+                  </p>
+                  <p className="text-2xl font-bold text-purple-600">
+                    {stats.currentRating}
+                  </p>
+                </div>
+                <div className="p-3 bg-purple-50 rounded-full">
+                  <TrendingUp className="h-6 w-6 text-purple-500" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="hover:shadow-md transition-shadow duration-300">
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div className="space-y-1">
+                  <p className="text-sm font-medium text-gray-500">
+                    Last Performance
+                  </p>
+                  <p
+                    className={`text-2xl font-bold ${getPerformanceColor(
+                      stats.lastPerformance
+                    )}`}
+                  >
+                    {stats.lastPerformance}
+                  </p>
+                </div>
                 <div
-                  className={`text-3xl font-bold ${getPerformanceColor(
-                    stats.lastPerformance
-                  )}`}
+                  className={`p-3 ${
+                    stats.lastPerformance >= 1600
+                      ? "bg-orange-50"
+                      : "bg-blue-50"
+                  } rounded-full`}
                 >
-                  {stats.lastPerformance}
+                  <Award
+                    className={`h-6 w-6 ${
+                      stats.lastPerformance >= 1600
+                        ? "text-orange-500"
+                        : "text-blue-500"
+                    }`}
+                  />
                 </div>
-                <div className="text-sm text-gray-600">Last Performance</div>
               </div>
             </CardContent>
           </Card>
         </div>
 
         {/* Filters and Actions */}
-        <Card className="mb-6">
+        <Card className="mb-8 shadow-md hover:shadow-lg transition-shadow duration-300">
+          <CardHeader className="pb-2 border-b">
+            <CardTitle className="text-lg font-semibold text-gray-800 flex items-center">
+              <Filter className="h-5 w-5 mr-2 text-blue-500" />
+              Filters & Actions
+            </CardTitle>
+          </CardHeader>
           <CardContent className="pt-6">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
               <div className="flex flex-wrap gap-4">
-                <Select value={timeFilter} onValueChange={setTimeFilter}>
-                  <SelectTrigger className="w-48">
-                    <SelectValue placeholder="Time Period" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all-time">All Time</SelectItem>
-                    <SelectItem value="last-month">Last Month</SelectItem>
-                    <SelectItem value="last-3-months">Last 3 Months</SelectItem>
-                    <SelectItem value="last-year">Last Year</SelectItem>
-                  </SelectContent>
-                </Select>
+                <div className="space-y-2">
+                  <Label className="text-sm text-gray-600">Time Period</Label>
+                  <Select value={timeFilter} onValueChange={setTimeFilter}>
+                    <SelectTrigger className="w-48 bg-white border-gray-200 hover:border-blue-400 hover:ring-1 hover:ring-blue-200 transition-all">
+                      <SelectValue placeholder="Time Period" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-white border border-gray-200 shadow-lg">
+                      <SelectItem
+                        value="all-time"
+                        className="hover:bg-blue-50 cursor-pointer focus:bg-blue-50"
+                      >
+                        All Time
+                      </SelectItem>
+                      <SelectItem
+                        value="last-month"
+                        className="hover:bg-blue-50 cursor-pointer focus:bg-blue-50"
+                      >
+                        Last Month
+                      </SelectItem>
+                      <SelectItem
+                        value="last-3-months"
+                        className="hover:bg-blue-50 cursor-pointer focus:bg-blue-50"
+                      >
+                        Last 3 Months
+                      </SelectItem>
+                      <SelectItem
+                        value="last-year"
+                        className="hover:bg-blue-50 cursor-pointer focus:bg-blue-50"
+                      >
+                        Last Year
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
 
-                <Select value={sortBy} onValueChange={setSortBy}>
-                  <SelectTrigger className="w-48">
-                    <SelectValue placeholder="Sort By" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="date-desc">Newest First</SelectItem>
-                    <SelectItem value="date-asc">Oldest First</SelectItem>
-                    <SelectItem value="performance-desc">
-                      Best Performance
-                    </SelectItem>
-                    <SelectItem value="performance-asc">
-                      Worst Performance
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
+                <div className="space-y-2">
+                  <Label className="text-sm text-gray-600">Sort By</Label>
+                  <Select value={sortBy} onValueChange={setSortBy}>
+                    <SelectTrigger className="w-48 bg-white border-gray-200 hover:border-blue-400 hover:ring-1 hover:ring-blue-200 transition-all">
+                      <SelectValue placeholder="Sort By" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-white border border-gray-200 shadow-lg">
+                      <SelectItem
+                        value="date-desc"
+                        className="hover:bg-blue-50 cursor-pointer focus:bg-blue-50"
+                      >
+                        Newest First
+                      </SelectItem>
+                      <SelectItem
+                        value="date-asc"
+                        className="hover:bg-blue-50 cursor-pointer focus:bg-blue-50"
+                      >
+                        Oldest First
+                      </SelectItem>
+                      <SelectItem
+                        value="performance-desc"
+                        className="hover:bg-blue-50 cursor-pointer focus:bg-blue-50"
+                      >
+                        Best Performance
+                      </SelectItem>
+                      <SelectItem
+                        value="performance-asc"
+                        className="hover:bg-blue-50 cursor-pointer focus:bg-blue-50"
+                      >
+                        Worst Performance
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
 
-                <Select value={contestType} onValueChange={setContestType}>
-                  <SelectTrigger className="w-48">
-                    <SelectValue placeholder="Contest Type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Contests</SelectItem>
-                    <SelectItem value="codeforces">Codeforces Only</SelectItem>
-                    <SelectItem value="practice">Practice Only</SelectItem>
-                  </SelectContent>
-                </Select>
+                <div className="space-y-2">
+                  <Label className="text-sm text-gray-600">Contest Type</Label>
+                  <Select value={contestType} onValueChange={setContestType}>
+                    <SelectTrigger className="w-48 bg-white border-gray-200 hover:border-blue-400 hover:ring-1 hover:ring-blue-200 transition-all">
+                      <SelectValue placeholder="Contest Type" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-white border border-gray-200 shadow-lg">
+                      <SelectItem
+                        value="all"
+                        className="hover:bg-blue-50 cursor-pointer focus:bg-blue-50"
+                      >
+                        All Contests
+                      </SelectItem>
+                      <SelectItem
+                        value="codeforces"
+                        className="hover:bg-blue-50 cursor-pointer focus:bg-blue-50"
+                      >
+                        Codeforces Only
+                      </SelectItem>
+                      <SelectItem
+                        value="practice"
+                        className="hover:bg-blue-50 cursor-pointer focus:bg-blue-50"
+                      >
+                        Practice Only
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm">
-                  <Download className="h-4 w-4 mr-2" />
-                  Export Data
-                </Button>
-                <Button variant="outline" size="sm">
-                  <Share className="h-4 w-4 mr-2" />
-                  Share Progress
-                </Button>
+              <div className="flex gap-3">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="bg-white border-gray-200 text-gray-700 hover:bg-gray-50 hover:text-gray-900"
+                    >
+                      <Download className="h-4 w-4 mr-2" />
+                      Export
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent
+                    align="end"
+                    className="w-48 bg-white border border-gray-200 shadow-lg rounded-md"
+                  >
+                    <DropdownMenuItem
+                      onClick={() => handleExport("csv")}
+                      className="cursor-pointer hover:bg-blue-50 focus:bg-blue-50 focus:text-blue-600"
+                    >
+                      <FileText className="h-4 w-4 mr-2" />
+                      Export as CSV
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => handleExport("json")}
+                      className="cursor-pointer hover:bg-blue-50 focus:bg-blue-50 focus:text-blue-600"
+                    >
+                      <Code className="h-4 w-4 mr-2" />
+                      Export as JSON
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100"
+                    >
+                      <Share className="h-4 w-4 mr-2" />
+                      Share
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent
+                    align="end"
+                    className="w-48 bg-white border border-gray-200 shadow-lg rounded-md"
+                  >
+                    <DropdownMenuItem
+                      onClick={() => handleShare("clipboard")}
+                      className="cursor-pointer hover:bg-blue-50 focus:bg-blue-50 focus:text-blue-600"
+                    >
+                      <Link2 className="h-4 w-4 mr-2" />
+                      Copy Link
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator className="bg-gray-200" />
+                    <DropdownMenuItem
+                      onClick={() => handleShare("twitter")}
+                      className="cursor-pointer hover:bg-blue-50 focus:bg-blue-50 focus:text-blue-600"
+                    >
+                      <Twitter className="h-4 w-4 mr-2" />
+                      Share on Twitter
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => handleShare("linkedin")}
+                      className="cursor-pointer hover:bg-blue-50 focus:bg-blue-50 focus:text-blue-600"
+                    >
+                      <Linkedin className="h-4 w-4 mr-2" />
+                      Share on LinkedIn
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             </div>
           </CardContent>
         </Card>
 
         {/* Contest History List */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <History className="h-5 w-5" />
-              Contest History ({pagination.totalContests})
+        <Card className="shadow-md hover:shadow-lg transition-shadow duration-300">
+          <CardHeader className="pb-3 border-b">
+            <CardTitle className="text-xl font-bold text-gray-800 flex items-center gap-2">
+              <History className="h-5 w-5 text-blue-500" />
+              Contest History
+              <Badge variant="outline" className="ml-2 font-normal">
+                {pagination.totalContests} contests
+              </Badge>
               {pagination.totalPages > 1 && (
                 <span className="text-sm font-normal text-gray-500 ml-2">
                   Page {pagination.currentPage} of {pagination.totalPages}
@@ -373,31 +722,53 @@ const ContestHistoryPage = () => {
               )}
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-6">
             {isLoading ? (
               <div className="flex justify-center items-center py-12">
-                <RefreshCw className="h-8 w-8 animate-spin text-blue-500" />
+                <div className="text-center">
+                  <RefreshCw className="h-8 w-8 animate-spin text-blue-500 mx-auto mb-4" />
+                  <p className="text-gray-500">Loading contest history...</p>
+                </div>
               </div>
             ) : contestHistory.length === 0 ? (
               <div className="text-center py-12">
-                <Code className="h-12 w-12 mx-auto mb-2 text-gray-300" />
-                <p className="text-lg font-medium text-gray-600">
+                <Code className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                <p className="text-lg font-medium text-gray-600 mb-2">
                   No contests found
                 </p>
-                <p className="text-gray-500">
+                <p className="text-gray-500 max-w-md mx-auto mb-6">
                   Participate in Codeforces contests or create practice contests
                   to see your history
                 </p>
+                <div className="flex justify-center gap-3">
+                  <Button
+                    variant="outline"
+                    className="bg-white border-gray-200 text-gray-700 hover:bg-gray-50"
+                    onClick={() =>
+                      window.open("https://codeforces.com/contests", "_blank")
+                    }
+                  >
+                    <ExternalLink className="h-4 w-4 mr-2" />
+                    Codeforces Contests
+                  </Button>
+                  <Button
+                    className="bg-blue-600 text-white hover:bg-blue-700"
+                    onClick={() => navigate("/practice")}
+                  >
+                    <Code className="h-4 w-4 mr-2" />
+                    Start Practice Contest
+                  </Button>
+                </div>
               </div>
             ) : (
               <div className="space-y-4">
                 {contestHistory.map((contest) => (
                   <div
                     key={`${contest.type}-${contest.id}`}
-                    className="border rounded-lg"
+                    className="border border-gray-200 rounded-xl overflow-hidden bg-white hover:border-blue-300 transition-colors duration-200"
                   >
                     <div
-                      className="p-4 cursor-pointer hover:bg-gray-50"
+                      className="p-4 cursor-pointer hover:bg-gray-50 transition-colors duration-200"
                       onClick={() =>
                         setExpandedContest(
                           expandedContest === `${contest.type}-${contest.id}`
@@ -410,29 +781,42 @@ const ContestHistoryPage = () => {
                         <div className="flex items-center gap-4">
                           {expandedContest ===
                           `${contest.type}-${contest.id}` ? (
-                            <ChevronDown className="h-5 w-5 text-gray-400" />
+                            <ChevronDown className="h-5 w-5 text-blue-500" />
                           ) : (
-                            <ChevronRight className="h-5 w-5 text-gray-400" />
+                            <ChevronRight className="h-5 w-5 text-blue-500" />
                           )}
                           <div>
-                            <h3 className="font-semibold">{contest.name}</h3>
-                            <div className="flex items-center gap-4 text-sm text-gray-600 mt-1">
-                              <span className="flex items-center gap-1">
-                                <Calendar className="h-4 w-4" />
-                                {formatDate(contest.date)} at{" "}
+                            <h3 className="font-semibold text-gray-900">
+                              {contest.name}
+                            </h3>
+                            <div className="flex items-center gap-4 text-sm text-gray-600 mt-2">
+                              <Badge variant="outline" className="bg-gray-50">
+                                <Calendar className="h-3 w-3 mr-1" />
+                                {formatDate(contest.date)}
+                              </Badge>
+                              <Badge variant="outline" className="bg-gray-50">
+                                <Clock className="h-3 w-3 mr-1" />
                                 {formatTime(contest.date)}
-                              </span>
-                              <span className="flex items-center gap-1">
-                                <Clock className="h-4 w-4" />
+                              </Badge>
+                              <Badge variant="outline" className="bg-gray-50">
                                 {contest.durationFormatted}
-                              </span>
+                              </Badge>
                             </div>
                           </div>
                         </div>
-                        <div className="flex items-center gap-4">
-                          <Badge variant="secondary">{contest.type}</Badge>
+                        <div className="flex items-center gap-6">
+                          <Badge
+                            variant="secondary"
+                            className={
+                              contest.type === "Codeforces"
+                                ? "bg-purple-100 text-purple-700"
+                                : "bg-blue-100 text-blue-700"
+                            }
+                          >
+                            {contest.type}
+                          </Badge>
                           <div className="text-right">
-                            <div className="font-semibold">
+                            <div className="font-semibold text-gray-900">
                               {contest.problems.solved}/{contest.problems.total}
                             </div>
                             <div className="text-sm text-gray-600">Solved</div>
@@ -471,7 +855,7 @@ const ContestHistoryPage = () => {
 
                           {contest.rank && (
                             <div className="text-right">
-                              <div className="font-semibold">
+                              <div className="font-semibold text-gray-900">
                                 #{contest.rank}
                               </div>
                               <div className="text-sm text-gray-600">Rank</div>
@@ -484,114 +868,137 @@ const ContestHistoryPage = () => {
                     {expandedContest === `${contest.type}-${contest.id}` && (
                       <div className="border-t bg-gray-50">
                         <div className="p-4">
-                          <h4 className="font-semibold mb-3">
+                          <h4 className="font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                            <Code className="h-4 w-4 text-blue-500" />
                             Problem Breakdown
                           </h4>
                           {contest.problems.details &&
                           contest.problems.details.length > 0 ? (
-                            <Table>
-                              <TableHeader>
-                                <TableRow>
-                                  <TableHead>Problem</TableHead>
-                                  <TableHead>Rating</TableHead>
-                                  <TableHead>Status</TableHead>
-                                  <TableHead>Time Spent</TableHead>
-                                  <TableHead>
-                                    {contest.type === "Practice"
-                                      ? "Editorial"
-                                      : ""}
-                                    {contest.type === "Practice" && <br />}
-                                    <span className="text-xs text-gray-500">
-                                      Attempts
-                                    </span>
-                                  </TableHead>
-                                  <TableHead></TableHead>
-                                </TableRow>
-                              </TableHeader>
-                              <TableBody>
-                                {contest.problems.details.map((problem) => (
-                                  <TableRow key={`${contest.id}-${problem.id}`}>
-                                    <TableCell>
-                                      <div>
-                                        <span className="font-medium">
-                                          {problem.id}
-                                        </span>
-                                        <p className="text-sm text-gray-600">
-                                          {problem.title}
-                                        </p>
-                                      </div>
-                                    </TableCell>
-                                    <TableCell>
-                                      <Badge variant="outline">
-                                        {problem.rating}
-                                      </Badge>
-                                    </TableCell>
-                                    <TableCell>
-                                      <Badge
-                                        className={getStatusColor(
-                                          problem.status
-                                        )}
-                                      >
-                                        {problem.status}
-                                      </Badge>
-                                    </TableCell>
-                                    <TableCell>{problem.timeSpent}</TableCell>
-                                    <TableCell>
-                                      {contest.type === "Practice" && (
-                                        <>
-                                          {problem.editorialAccessed ? (
-                                            <Badge className="bg-yellow-100 text-yellow-800">
-                                              Accessed
-                                            </Badge>
-                                          ) : (
-                                            <Badge className="bg-gray-100 text-gray-800">
-                                              Not Accessed
-                                            </Badge>
-                                          )}
-                                        </>
-                                      )}
-                                      <div className="text-sm text-gray-600 mt-1">
-                                        {problem.attempts > 0
-                                          ? `${problem.attempts} ${
-                                              problem.attempts === 1
-                                                ? "attempt"
-                                                : "attempts"
-                                            }`
-                                          : "-"}
-                                      </div>
-                                    </TableCell>
-                                    <TableCell>
-                                      {contest.type === "Codeforces" ? (
-                                        <a
-                                          href={getProblemUrl(
-                                            problem,
-                                            contest.id
-                                          )}
-                                          target="_blank"
-                                          rel="noopener noreferrer"
-                                          className="text-blue-600 hover:underline flex items-center gap-1 text-sm"
-                                        >
-                                          View{" "}
-                                          <ExternalLink className="h-3 w-3" />
-                                        </a>
-                                      ) : (
-                                        <Link
-                                          to={getPracticeContestUrl(contest.id)}
-                                          className="text-blue-600 hover:underline flex items-center gap-1 text-sm"
-                                        >
-                                          Details{" "}
-                                          <ExternalLink className="h-3 w-3" />
-                                        </Link>
-                                      )}
-                                    </TableCell>
+                            <div className="rounded-lg overflow-hidden border border-gray-200">
+                              <Table>
+                                <TableHeader>
+                                  <TableRow className="bg-gray-100">
+                                    <TableHead className="font-semibold">
+                                      Problem
+                                    </TableHead>
+                                    <TableHead className="font-semibold">
+                                      Rating
+                                    </TableHead>
+                                    <TableHead className="font-semibold">
+                                      Status
+                                    </TableHead>
+                                    <TableHead className="font-semibold">
+                                      Time Spent
+                                    </TableHead>
+                                    <TableHead className="font-semibold">
+                                      {contest.type === "Practice"
+                                        ? "Editorial"
+                                        : ""}
+                                      {contest.type === "Practice" && <br />}
+                                      <span className="text-xs text-gray-500">
+                                        Attempts
+                                      </span>
+                                    </TableHead>
+                                    <TableHead className="font-semibold"></TableHead>
                                   </TableRow>
-                                ))}
-                              </TableBody>
-                            </Table>
+                                </TableHeader>
+                                <TableBody>
+                                  {contest.problems.details.map((problem) => (
+                                    <TableRow
+                                      key={`${contest.id}-${problem.id}`}
+                                      className="hover:bg-gray-50"
+                                    >
+                                      <TableCell>
+                                        <div>
+                                          <span className="font-medium text-gray-900">
+                                            {problem.id}
+                                          </span>
+                                          <p className="text-sm text-gray-600 mt-1">
+                                            {problem.title}
+                                          </p>
+                                        </div>
+                                      </TableCell>
+                                      <TableCell>
+                                        <Badge
+                                          variant="outline"
+                                          className="bg-gray-50"
+                                        >
+                                          {problem.rating}
+                                        </Badge>
+                                      </TableCell>
+                                      <TableCell>
+                                        <Badge
+                                          className={getStatusColor(
+                                            problem.status
+                                          )}
+                                        >
+                                          {problem.status}
+                                        </Badge>
+                                      </TableCell>
+                                      <TableCell className="text-gray-700">
+                                        {problem.timeSpent}
+                                      </TableCell>
+                                      <TableCell>
+                                        {contest.type === "Practice" && (
+                                          <>
+                                            {problem.editorialAccessed ? (
+                                              <Badge className="bg-yellow-100 text-yellow-800">
+                                                <BookOpen className="h-3 w-3 mr-1" />
+                                                Accessed
+                                              </Badge>
+                                            ) : (
+                                              <Badge className="bg-gray-100 text-gray-800">
+                                                <BookOpen className="h-3 w-3 mr-1" />
+                                                Not Accessed
+                                              </Badge>
+                                            )}
+                                          </>
+                                        )}
+                                        <div className="text-sm text-gray-600 mt-1">
+                                          {problem.attempts > 0
+                                            ? `${problem.attempts} ${
+                                                problem.attempts === 1
+                                                  ? "attempt"
+                                                  : "attempts"
+                                              }`
+                                            : "-"}
+                                        </div>
+                                      </TableCell>
+                                      <TableCell>
+                                        {contest.type === "Codeforces" ? (
+                                          <a
+                                            href={getProblemUrl(
+                                              problem,
+                                              contest.id
+                                            )}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1 text-sm"
+                                          >
+                                            View Problem
+                                            <ExternalLink className="h-3 w-3" />
+                                          </a>
+                                        ) : (
+                                          <Link
+                                            to={getPracticeContestUrl(
+                                              contest.id
+                                            )}
+                                            className="text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1 text-sm"
+                                          >
+                                            View Details
+                                            <ChevronRight className="h-3 w-3" />
+                                          </Link>
+                                        )}
+                                      </TableCell>
+                                    </TableRow>
+                                  ))}
+                                </TableBody>
+                              </Table>
+                            </div>
                           ) : (
-                            <div className="text-center py-4 text-gray-500">
-                              <AlertTriangle className="h-8 w-8 mx-auto mb-2 text-yellow-500" />
-                              <p>
+                            <div className="text-center py-8 bg-white rounded-lg border border-dashed border-gray-300">
+                              <AlertTriangle className="h-8 w-8 mx-auto mb-3 text-yellow-500" />
+                              <p className="text-gray-600">
                                 Detailed problem information is not available
                                 for this contest.
                               </p>
@@ -600,7 +1007,7 @@ const ContestHistoryPage = () => {
                         </div>
 
                         {contest.type === "Practice" && (
-                          <div className="border-t p-4 flex justify-between items-center">
+                          <div className="border-t p-4 bg-white flex justify-between items-center">
                             <div className="flex items-center gap-2">
                               <BookOpen className="h-4 w-4 text-gray-500" />
                               <span className="text-sm text-gray-600">
@@ -609,9 +1016,9 @@ const ContestHistoryPage = () => {
                             </div>
                             <Link
                               to={`/practice/${contest.id}`}
-                              className="text-blue-600 hover:underline flex items-center gap-1 text-sm"
+                              className="text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1 text-sm font-medium"
                             >
-                              View Full Details{" "}
+                              View Full Details
                               <ExternalLink className="h-3 w-3" />
                             </Link>
                           </div>
@@ -632,6 +1039,7 @@ const ContestHistoryPage = () => {
                     size="sm"
                     onClick={() => handlePageChange(1)}
                     disabled={currentPage === 1}
+                    className="bg-white"
                   >
                     <ChevronsLeft className="h-4 w-4" />
                   </Button>
@@ -640,13 +1048,17 @@ const ContestHistoryPage = () => {
                     size="sm"
                     onClick={() => handlePageChange(currentPage - 1)}
                     disabled={currentPage === 1}
+                    className="bg-white"
                   >
                     <ChevronLeft className="h-4 w-4" />
                   </Button>
 
                   {getPageNumbers().map((page, index) =>
                     page === "..." ? (
-                      <span key={`ellipsis-${index}`} className="px-2">
+                      <span
+                        key={`ellipsis-${index}`}
+                        className="px-2 text-gray-500"
+                      >
                         ...
                       </span>
                     ) : (
@@ -655,7 +1067,9 @@ const ContestHistoryPage = () => {
                         variant={currentPage === page ? "default" : "outline"}
                         size="sm"
                         onClick={() => handlePageChange(page)}
-                        className="min-w-[32px]"
+                        className={`min-w-[32px] ${
+                          currentPage === page ? "" : "bg-white"
+                        }`}
                       >
                         {page}
                       </Button>
@@ -667,6 +1081,7 @@ const ContestHistoryPage = () => {
                     size="sm"
                     onClick={() => handlePageChange(currentPage + 1)}
                     disabled={currentPage === pagination.totalPages}
+                    className="bg-white"
                   >
                     <ChevronRight className="h-4 w-4" />
                   </Button>
@@ -675,6 +1090,7 @@ const ContestHistoryPage = () => {
                     size="sm"
                     onClick={() => handlePageChange(pagination.totalPages)}
                     disabled={currentPage === pagination.totalPages}
+                    className="bg-white"
                   >
                     <ChevronsRight className="h-4 w-4" />
                   </Button>

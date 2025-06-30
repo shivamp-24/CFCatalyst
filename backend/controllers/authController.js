@@ -54,6 +54,25 @@ const register = async (req, res) => {
       });
     }
 
+    // Fetch the user's solved problems from Codeforces
+    let solvedProblems = [];
+    try {
+      // Import the user solved problems function
+      const getUserSolvedProblemIds =
+        require("../services/codeforcesService").getUserSolvedProblemIds;
+      const solvedProblemSet = await getUserSolvedProblemIds(codeforcesHandle);
+      solvedProblems = Array.from(solvedProblemSet); // Convert Set to Array
+      console.log(
+        `Fetched ${solvedProblems.length} solved problems for new user ${codeforcesHandle}`
+      );
+    } catch (error) {
+      console.error(
+        `Error fetching solved problems for ${codeforcesHandle}:`,
+        error.message
+      );
+      // Continue with registration even if we can't fetch solved problems
+    }
+
     //create new user
     const newUser = new User({
       codeforcesHandle,
@@ -63,6 +82,7 @@ const register = async (req, res) => {
       maxRating: cfData.maxRating || 0,
       avatar: cfData.avatar || null,
       titlePhoto: cfData.titlePhoto || null,
+      solvedProblems: solvedProblems, // Add solved problems to new user
     });
 
     //hash password
@@ -76,6 +96,7 @@ const register = async (req, res) => {
     const payload = {
       user: {
         id: newUser.id,
+        role: newUser.role,
       },
     };
     const token = jwt.sign(payload, process.env.JWT_SECRET, {
@@ -85,13 +106,19 @@ const register = async (req, res) => {
     res.status(201).json({
       token,
       user: {
-        // Send some basic user info back
+        // Send comprehensive user info back
         id: newUser.id,
         email: newUser.email,
         codeforcesHandle: newUser.codeforcesHandle,
-        codeforcesRating: newUser.codeforcesRating,
-        maxRating: newUser.maxRating,
+        codeforcesRating: newUser.codeforcesRating || 0,
+        maxRating: newUser.maxRating || 0,
         avatar: newUser.avatar,
+        titlePhoto: newUser.titlePhoto,
+        rank: cfData.rank,
+        maxRank: cfData.maxRank,
+        solvedProblems: solvedProblems, // Return the actual solved problems array
+        practiceContestHistory: [],
+        role: newUser.role,
       },
     });
   } catch (error) {
@@ -131,10 +158,52 @@ const login = async (req, res) => {
       return res.status(400).json({ message: "Invalid credentials" });
     }
 
+    // Try to get fresh CF data if possible
+    let cfData = null;
+    let solvedProblems = user.solvedProblems || [];
+
+    try {
+      cfData = await codeforcesService.getUserInfo(user.codeforcesHandle);
+
+      // Also try to get latest solved problems
+      try {
+        const solvedProblemSet =
+          await codeforcesService.getUserSolvedProblemIds(
+            user.codeforcesHandle
+          );
+        solvedProblems = Array.from(solvedProblemSet); // Convert Set to Array
+        console.log(
+          `Login - Fetched ${solvedProblems.length} solved problems for ${user.codeforcesHandle}`
+        );
+
+        // Update the user with the latest solved problems
+        if (
+          solvedProblems.length > 0 &&
+          (!user.solvedProblems ||
+            solvedProblems.length !== user.solvedProblems.length)
+        ) {
+          user.solvedProblems = solvedProblems;
+          await user.save();
+          console.log(
+            `Updated user's solved problems in database during login`
+          );
+        }
+      } catch (solvedError) {
+        console.error(
+          `Error fetching solved problems during login:`,
+          solvedError.message
+        );
+        // Use existing solved problems if we can't fetch the latest
+      }
+    } catch (error) {
+      console.log("Could not fetch fresh CF data during login:", error.message);
+    }
+
     //creating JWT token
     const payload = {
       user: {
         id: user.id,
+        role: user.role,
       },
     };
     const token = jwt.sign(payload, process.env.JWT_SECRET, {
@@ -144,13 +213,22 @@ const login = async (req, res) => {
     res.status(200).json({
       token,
       user: {
-        // Send some basic user info back
+        // Send comprehensive user info back
         id: user.id,
+        name: user.name,
         email: user.email,
+        bio: user.bio,
+        country: user.country,
         codeforcesHandle: user.codeforcesHandle,
-        codeforcesRating: user.codeforcesRating,
-        maxRating: user.maxRating,
-        avatar: user.avatar,
+        codeforcesRating: cfData?.rating || user.codeforcesRating || 0,
+        maxRating: cfData?.maxRating || user.maxRating || 0,
+        avatar: cfData?.avatar || user.avatar,
+        titlePhoto: cfData?.titlePhoto || user.titlePhoto,
+        rank: cfData?.rank,
+        maxRank: cfData?.maxRank,
+        solvedProblems: solvedProblems,
+        practiceContestHistory: user.practiceContestHistory || [],
+        role: user.role,
       },
     });
   } catch (error) {
@@ -168,7 +246,80 @@ const getUser = async (req, res) => {
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
-    res.json(user);
+
+    console.log("GetUser - User found:", user._id, "Role:", user.role);
+
+    // Try to get fresh CF data if possible
+    let cfData = null;
+    let solvedProblems = user.solvedProblems || [];
+
+    try {
+      cfData = await codeforcesService.getUserInfo(user.codeforcesHandle);
+
+      // Also try to get latest solved problems
+      try {
+        const solvedProblemSet =
+          await codeforcesService.getUserSolvedProblemIds(
+            user.codeforcesHandle
+          );
+        solvedProblems = Array.from(solvedProblemSet); // Convert Set to Array
+        console.log(
+          `getUser - Fetched ${solvedProblems.length} solved problems for ${user.codeforcesHandle}`
+        );
+
+        // Update the user with the latest solved problems
+        if (
+          solvedProblems.length > 0 &&
+          (!user.solvedProblems ||
+            solvedProblems.length !== user.solvedProblems.length)
+        ) {
+          user.solvedProblems = solvedProblems;
+          await user.save();
+          console.log(
+            `Updated user's solved problems in database during getUser`
+          );
+        }
+      } catch (solvedError) {
+        console.error(
+          `Error fetching solved problems during getUser:`,
+          solvedError.message
+        );
+        // Use existing solved problems if we can't fetch the latest
+      }
+    } catch (error) {
+      console.log(
+        "Could not fetch fresh CF data during getUser:",
+        error.message
+      );
+    }
+
+    // Create a comprehensive response with all available data
+    const userData = {
+      ...user.toObject(),
+
+      // Include potentially fresher CF data if available
+      codeforcesRating: cfData?.rating || user.codeforcesRating || 0,
+      maxRating: cfData?.maxRating || user.maxRating || 0,
+      avatar: cfData?.avatar || user.avatar,
+      titlePhoto: cfData?.titlePhoto || user.titlePhoto,
+      rank: cfData?.rank,
+      maxRank: cfData?.maxRank,
+
+      // Ensure arrays are always defined with the latest data
+      solvedProblems: solvedProblems,
+      practiceContestHistory: user.practiceContestHistory || [],
+
+      // Include any additional CF data that might be useful
+      contribution: cfData?.contribution,
+      friendOfCount: cfData?.friendOfCount,
+      lastOnlineTimeSeconds: cfData?.lastOnlineTimeSeconds,
+      registrationTimeSeconds: cfData?.registrationTimeSeconds,
+    };
+
+    // Log user data being sent to verify role is included
+    console.log("GetUser - Sending userData with role:", userData.role);
+
+    res.json(userData);
   } catch (error) {
     console.error("Server error while getting user:", error.message);
     res.status(500).json({ message: "Server error while getting user." });
@@ -205,18 +356,57 @@ const updateCodeforcesData = async (req, res) => {
       user.avatar = cfData.avatar || user.avatar;
       user.titlePhoto = cfData.titlePhoto || user.titlePhoto;
 
+      // Fetch the user's latest solved problems
+      try {
+        const solvedProblemSet =
+          await codeforcesService.getUserSolvedProblemIds(
+            user.codeforcesHandle
+          );
+        const solvedProblems = Array.from(solvedProblemSet); // Convert Set to Array
+        console.log(
+          `Updated solved problems for ${user.codeforcesHandle}: ${solvedProblems.length} problems`
+        );
+        user.solvedProblems = solvedProblems;
+      } catch (solvedError) {
+        console.error(
+          `Error updating solved problems for ${user.codeforcesHandle}:`,
+          solvedError.message
+        );
+        // Continue with the update even if we can't fetch solved problems
+      }
+
       await user.save();
 
+      // Return comprehensive user data
       res.json({
         message: "Codeforces data updated successfully",
-        user: {
-          id: user.id,
-          email: user.email,
-          codeforcesHandle: user.codeforcesHandle,
-          codeforcesRating: user.codeforcesRating,
-          maxRating: user.maxRating,
-          avatar: user.avatar,
-        },
+        // User model data
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        bio: user.bio,
+        country: user.country,
+        codeforcesHandle: user.codeforcesHandle,
+        role: user.role,
+        solvedProblems: user.solvedProblems || [],
+        practiceContestHistory: user.practiceContestHistory || [],
+
+        // Updated CF data
+        codeforcesRating: user.codeforcesRating,
+        maxRating: user.maxRating,
+        avatar: user.avatar,
+        titlePhoto: user.titlePhoto,
+
+        // Additional CF data
+        rank: cfData.rank,
+        maxRank: cfData.maxRank,
+        contribution: cfData.contribution,
+        friendOfCount: cfData.friendOfCount,
+        lastOnlineTimeSeconds: cfData.lastOnlineTimeSeconds,
+        registrationTimeSeconds: cfData.registrationTimeSeconds,
+
+        // Meta information
+        updatedAt: new Date().toISOString(),
       });
     } catch (error) {
       console.error("Error updating Codeforces data:", error.message);

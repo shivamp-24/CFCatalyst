@@ -80,34 +80,4 @@ const getContest = async (req, res) => {
   }
 };
 
-// @desc    Sync contests from Codeforces API to local DB
-// @route   POST /api/contests/sync
-const syncContests = async (req, res) => {
-  try {
-    console.log("Contest sync initiated by admin:", req.user.id);
-
-    const { newContestsCount, updatedContestsCount, totalContestsProcessed } =
-      await codeforcesService.syncContests();
-
-    res.json({
-      message: "Contests synchronization complete.",
-      newContestsAdded: newContestsCount,
-      existingContestsUpdated: updatedContestsCount,
-      totalContestsFetchedFromCF: totalContestsProcessed,
-    });
-  } catch (error) {
-    console.error(
-      "Error during contests synchronization:",
-      error.message,
-      error.stack
-    );
-    if (error.message && error.message.includes("Codeforces API error")) {
-      return res.status(502).json({ message: error.message }); // Propagate CF API error message
-    }
-    res
-      .status(500)
-      .json({ message: "Server error during contests synchronization." });
-  }
-};
-
-module.exports = { getContests, getContest, syncContests };
+module.exports = { getContests, getContest };
