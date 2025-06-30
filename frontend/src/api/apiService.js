@@ -25,50 +25,54 @@ apiService.interceptors.request.use(
 export const userApi = {
   // Get user's profile by Codeforces handle
   getProfile: async (codeforcesHandle) => {
-    const response = await apiService.get(`/users/profile/${codeforcesHandle}`);
+    const response = await apiService.get(
+      `/api/users/profile/${codeforcesHandle}`
+    );
     return response.data;
   },
 
   // Update user's profile
   updateProfile: async (profileData) => {
-    const response = await apiService.put("/users/profile", profileData);
+    const response = await apiService.put("/api/users/profile", profileData);
     return response.data;
   },
 
   // Get user's Codeforces stats
   getCFStats: async () => {
-    const response = await apiService.get("/users/me/cf-stats");
+    const response = await apiService.get("/api/users/me/cf-stats");
     return response.data;
   },
 
   // Get user's practice history
   getPracticeHistory: async () => {
-    const response = await apiService.get("/users/me/practice-history");
+    const response = await apiService.get("/api/users/me/practice-history");
     return response.data;
   },
 
   // Update user's Codeforces data (including avatar)
   updateCFData: async () => {
-    const response = await apiService.put("/auth/update-cf-data");
+    const response = await apiService.put("/api/auth/update-cf-data");
     return response.data;
   },
 
   // Get user's dashboard statistics
   getDashboardStats: async () => {
-    const response = await apiService.get("/users/me/dashboard-stats");
+    const response = await apiService.get("/api/users/me/dashboard-stats");
     return response.data;
   },
 
   // Force update of dashboard statistics
   updateDashboardStats: async () => {
-    const response = await apiService.post("/users/me/dashboard-stats/update");
+    const response = await apiService.post(
+      "/api/users/me/dashboard-stats/update"
+    );
     return response.data;
   },
 
   // Get user's recent contests (both Codeforces and practice contests)
   getRecentContests: async (limit = 5, refresh = false) => {
     const response = await apiService.get(
-      `/users/me/recent-contests?limit=${limit}&refresh=${refresh}`
+      `/api/users/me/recent-contests?limit=${limit}&refresh=${refresh}`
     );
     return response.data;
   },
@@ -92,7 +96,7 @@ export const userApi = {
     });
 
     const response = await apiService.get(
-      `/users/me/all-contests?${queryParams}`
+      `/api/users/me/all-contests?${queryParams}`
     );
     return response.data;
   },
@@ -100,7 +104,7 @@ export const userApi = {
   // Get user's weak topics based on submission history
   getWeakTopics: async (refresh = false) => {
     const response = await apiService.get(
-      `/users/me/weak-topics${refresh ? "?refresh=true" : ""}`
+      `/api/users/me/weak-topics${refresh ? "?refresh=true" : ""}`
     );
     return response.data;
   },
@@ -112,7 +116,7 @@ export const practiceContestApi = {
   generateContest: async (contestParams) => {
     try {
       const response = await apiService.post(
-        "/practice-contests/generate",
+        "/api/practice-contests/generate",
         contestParams
       );
       return response.data;
@@ -125,7 +129,7 @@ export const practiceContestApi = {
 
   // Get user's practice contests
   getUserContests: async (page = 1, limit = 10, status = null) => {
-    let url = `/practice-contests/me?page=${page}&limit=${limit}`;
+    let url = `/api/practice-contests/me?page=${page}&limit=${limit}`;
     if (status) url += `&status=${status}`;
     const response = await apiService.get(url);
     return response.data;
@@ -133,14 +137,16 @@ export const practiceContestApi = {
 
   // Get specific practice contest
   getContest: async (contestId) => {
-    const response = await apiService.get(`/practice-contests/${contestId}`);
+    const response = await apiService.get(
+      `/api/practice-contests/${contestId}`
+    );
     return response.data;
   },
 
   // Start a practice contest
   startContest: async (contestId) => {
     const response = await apiService.post(
-      `/practice-contests/${contestId}/start`
+      `/api/practice-contests/${contestId}/start`
     );
     return response.data;
   },
@@ -148,7 +154,7 @@ export const practiceContestApi = {
   // Complete a practice contest
   completeContest: async (contestId, problemSolutions = null) => {
     const response = await apiService.post(
-      `/practice-contests/${contestId}/complete`,
+      `/api/practice-contests/${contestId}/complete`,
       { problemSolutions }
     );
     return response.data;
@@ -157,7 +163,7 @@ export const practiceContestApi = {
   // Access editorial for a problem in a contest
   accessEditorial: async (contestId, problemId) => {
     const response = await apiService.put(
-      `/practice-contests/${contestId}/problems/${problemId}/editorial`
+      `/api/practice-contests/${contestId}/problems/${problemId}/editorial`
     );
     return response.data;
   },
@@ -165,7 +171,7 @@ export const practiceContestApi = {
   // Sync contest submissions from Codeforces
   syncSubmissions: async (contestId) => {
     const response = await apiService.post(
-      `/practice-contests/${contestId}/sync`
+      `/api/practice-contests/${contestId}/sync`
     );
     return response.data;
   },

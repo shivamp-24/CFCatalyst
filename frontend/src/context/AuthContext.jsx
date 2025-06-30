@@ -18,7 +18,7 @@ export const AuthProvider = ({ children }) => {
 
       // Fetch user data if token exists
       apiService
-        .get("/auth/user")
+        .get("/api/auth/user")
         .then((response) => {
           setUser(response.data);
         })
@@ -30,25 +30,33 @@ export const AuthProvider = ({ children }) => {
   }, [token]);
 
   const login = async (email, password, codeforcesHandle) => {
-    // Create payload based on whether email or codeforcesHandle is provided
-    const payload = { password };
-    if (email) payload.email = email;
-    if (codeforcesHandle) payload.codeforcesHandle = codeforcesHandle;
+    try {
+      const payload = {};
+      if (email) payload.email = email;
+      if (codeforcesHandle) payload.codeforcesHandle = codeforcesHandle;
+      payload.password = password;
 
-    const response = await apiService.post("/auth/login", payload);
-    const { token, user } = response.data;
+      const response = await apiService.post("/api/auth/login", payload);
+      const { token, user } = response.data;
 
-    localStorage.setItem("token", token);
-    setToken(token);
-    setUser(user);
-    navigate("/dashboard");
+      localStorage.setItem("token", token);
+      setToken(token);
+      setUser(user);
+      navigate("/dashboard");
+    } catch (error) {
+      console.error("Login error:", error);
+    }
   };
 
   const register = async (userData) => {
-    await apiService.post("/auth/register", userData);
+    try {
+      await apiService.post("/api/auth/register", userData);
 
-    // Redirect to login after successful registration
-    navigate("/login");
+      // Redirect to login after successful registration
+      navigate("/login");
+    } catch (error) {
+      console.error("Registration error:", error);
+    }
   };
 
   const logout = () => {

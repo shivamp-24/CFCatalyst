@@ -2,23 +2,23 @@ import apiService from "./apiService";
 
 export const adminApi = {
   // Get admin dashboard statistics
-  getStats: () => apiService.get("/admin/stats"),
+  getStats: () => apiService.get("/api/admin/stats"),
 
   // Sync problems from Codeforces
-  syncProblems: () => apiService.post("/admin/sync/problems"),
+  syncProblems: () => apiService.post("/api/admin/sync/problems"),
 
   // Sync contests from Codeforces
-  syncContests: () => apiService.post("/admin/sync/contests"),
+  syncContests: () => apiService.post("/api/admin/sync/contests"),
 
   // Get sync status
-  getSyncStatus: () => apiService.get("/admin/sync/status"),
+  getSyncStatus: () => apiService.get("/api/admin/sync/status"),
 
   // Sync all data
   syncAll: async () => {
     try {
       const [problemsRes, contestsRes] = await Promise.all([
-        apiService.post("/admin/sync/problems"),
-        apiService.post("/admin/sync/contests"),
+        apiService.post("/api/admin/sync/problems"),
+        apiService.post("/api/admin/sync/contests"),
       ]);
 
       return {
