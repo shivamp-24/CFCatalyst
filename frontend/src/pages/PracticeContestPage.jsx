@@ -23,6 +23,8 @@ import {
   AlertTriangle,
   BookOpen,
   RefreshCw,
+  Eye,
+  Tag,
 } from "lucide-react";
 
 const PracticeContestPage = () => {
@@ -37,6 +39,8 @@ const PracticeContestPage = () => {
   const [timeRemaining, setTimeRemaining] = useState(null);
   const [isSyncing, setIsSyncing] = useState(false);
   const [isAccessingEditorial, setIsAccessingEditorial] = useState({});
+  const [showRatings, setShowRatings] = useState({});
+  const [showTags, setShowTags] = useState({});
 
   const timerRef = useRef(null);
   const syncIntervalRef = useRef(null);
@@ -527,29 +531,65 @@ const PracticeContestPage = () => {
                           <Check className="h-5 w-5 ml-2 text-green-600" />
                         )}
                       </CardTitle>
-                      <div
-                        className={`px-3 py-1.5 text-sm font-medium rounded-full ${
-                          isProblemSolved
-                            ? "bg-green-200 text-green-800"
-                            : "bg-blue-100 text-blue-800"
-                        }`}
-                      >
-                        {problem.rating || "Unknown"} rating
-                      </div>
+                      {showRatings[problem._id] ? (
+                        <div
+                          className={`px-3 py-1.5 text-sm font-medium rounded-full ${
+                            isProblemSolved
+                              ? "bg-green-200 text-green-800"
+                              : "bg-blue-100 text-blue-800"
+                          }`}
+                        >
+                          {problem.rating || "Unknown"} rating
+                        </div>
+                      ) : (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() =>
+                            setShowRatings((prev) => ({
+                              ...prev,
+                              [problem._id]: true,
+                            }))
+                          }
+                          className="border-gray-300 text-gray-600 hover:bg-gray-50 hover:border-gray-400 transition-colors"
+                        >
+                          <Eye className="h-3 w-3 mr-1" />
+                          Show Rating
+                        </Button>
+                      )}
                     </div>
                   </CardHeader>
                   <CardContent className="pb-2 pt-0">
-                    <div className="flex flex-wrap gap-1 mb-2">
-                      {problem.tags &&
-                        problem.tags.map((tag) => (
-                          <span
-                            key={tag}
-                            className="px-2 py-1 text-xs rounded bg-blue-100 text-blue-800"
-                          >
-                            {tag}
-                          </span>
-                        ))}
-                    </div>
+                    {showTags[problem._id] ? (
+                      <div className="flex flex-wrap gap-1 mb-2">
+                        {problem.tags &&
+                          problem.tags.map((tag) => (
+                            <span
+                              key={tag}
+                              className="px-2 py-1 text-xs rounded bg-blue-100 text-blue-800"
+                            >
+                              {tag}
+                            </span>
+                          ))}
+                      </div>
+                    ) : (
+                      <div className="mb-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() =>
+                            setShowTags((prev) => ({
+                              ...prev,
+                              [problem._id]: true,
+                            }))
+                          }
+                          className="border-gray-300 text-gray-600 hover:bg-gray-50 hover:border-gray-400 transition-colors"
+                        >
+                          <Tag className="h-3 w-3 mr-1" />
+                          Show Tags
+                        </Button>
+                      </div>
+                    )}
                   </CardContent>
                   <CardFooter className="pt-0 flex justify-between items-center">
                     <div className="text-sm">

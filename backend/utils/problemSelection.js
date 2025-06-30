@@ -294,9 +294,15 @@ const selectProblems = async (
             slotQuery.rating = {
               $gte: Math.max(
                 800,
-                slotTargetRating - SIMULATION_RATING_WINDOW_INITIAL / 2
+                Math.max(
+                  effectiveMinRating,
+                  slotTargetRating - SIMULATION_RATING_WINDOW_INITIAL / 2
+                )
               ),
-              $lte: slotTargetRating + SIMULATION_RATING_WINDOW_INITIAL / 2,
+              $lte: Math.min(
+                effectiveMaxRating,
+                slotTargetRating + SIMULATION_RATING_WINDOW_INITIAL / 2
+              ),
             };
             const slotSpecificTagsRaw =
               profile.commonTagsPerIndex?.[targetProblemIndex];
@@ -334,9 +340,15 @@ const selectProblems = async (
             slotQuery.rating = {
               $gte: Math.max(
                 800,
-                slotTargetRating - SIMULATION_RATING_WINDOW_FALLBACK / 2
+                Math.max(
+                  effectiveMinRating,
+                  slotTargetRating - SIMULATION_RATING_WINDOW_FALLBACK / 2
+                )
               ),
-              $lte: slotTargetRating + SIMULATION_RATING_WINDOW_FALLBACK / 2,
+              $lte: Math.min(
+                effectiveMaxRating,
+                slotTargetRating + SIMULATION_RATING_WINDOW_FALLBACK / 2
+              ),
             };
             console.log(
               `[problemSelection] Sim Slot ${targetProblemIndex} (Attempt 2) Query: ${JSON.stringify(

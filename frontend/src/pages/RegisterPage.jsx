@@ -49,9 +49,9 @@ const RegisterPage = () => {
         if (!value.trim()) {
           return "Codeforces handle is required";
         }
-        // Codeforces handle validation - alphanumeric and underscore only
-        if (!/^[a-zA-Z0-9_]+$/.test(value)) {
-          return "Handle can only contain letters, numbers, and underscores";
+        // Codeforces handle validation - alphanumeric, underscore, and dots allowed
+        if (!/^[a-zA-Z0-9_\.]+$/.test(value)) {
+          return "Handle can only contain letters, numbers, underscores, and dots";
         }
         return "";
       case "email":
