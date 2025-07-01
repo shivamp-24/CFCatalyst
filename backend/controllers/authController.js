@@ -418,4 +418,17 @@ const updateCodeforcesData = async (req, res) => {
   }
 };
 
-module.exports = { register, login, getUser, logout, updateCodeforcesData };
+// @desc    Health check endpoint
+// @route   GET /api/auth/health
+const healthCheck = async (req, res) => {
+  res.status(200).json({ status: "ok", message: "Server is up and running" });
+};
+
+module.exports = {
+  register,
+  login,
+  getUser,
+  logout,
+  updateCodeforcesData,
+  healthCheck,
+};

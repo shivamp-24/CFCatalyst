@@ -1,5 +1,12 @@
 import { Link, useNavigate } from "react-router-dom";
-import { Trophy, AlertCircle, CheckCircle } from "lucide-react";
+import {
+  Trophy,
+  AlertCircle,
+  CheckCircle,
+  Wifi,
+  WifiOff,
+  LoaderCircle,
+} from "lucide-react";
 import {
   Card,
   CardContent,
@@ -33,7 +40,7 @@ const LoginPage = () => {
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { login } = useAuth();
+  const { login, serverStatus, checkServerAvailability } = useAuth();
 
   const validate = (name, value) => {
     switch (name) {
@@ -102,13 +109,25 @@ const LoginPage = () => {
       });
 
       // Navigation is handled by the login function in AuthContext
+      // Add an extra navigation call to ensure redirect happens
+      setTimeout(() => {
+        navigate("/dashboard");
+      }, 500);
     } catch (error) {
       console.error("Login error:", error);
 
       // Extract error message from response if available
-      const errorMessage =
-        error.response?.data?.message ||
-        "Failed to log in. Please check your credentials.";
+      let errorMessage = "Failed to log in. Please check your credentials.";
+
+      if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.code === "ECONNABORTED") {
+        errorMessage =
+          "Server request timed out. The backend may be unavailable or starting up. Please try again in a few minutes.";
+      } else if (!error.response) {
+        errorMessage =
+          "Cannot connect to server. Please check your internet connection and try again.";
+      }
 
       toast({
         title: "Login Failed",
@@ -162,6 +181,32 @@ const LoginPage = () => {
             <CardDescription className="text-center text-gray-600">
               Log in to continue your Codeforces journey
             </CardDescription>
+
+            {/* Server Status Indicator */}
+            <div className="flex justify-center items-center mt-2">
+              {serverStatus === "online" ? (
+                <div className="text-green-600 text-sm flex items-center">
+                  <Wifi className="h-4 w-4 mr-1" />
+                  Server Online
+                </div>
+              ) : serverStatus === "offline" ? (
+                <div className="text-red-600 text-sm flex items-center">
+                  <WifiOff className="h-4 w-4 mr-1" />
+                  Server Offline
+                  <button
+                    className="ml-2 text-blue-600 underline text-xs"
+                    onClick={checkServerAvailability}
+                  >
+                    Retry
+                  </button>
+                </div>
+              ) : (
+                <div className="text-yellow-600 text-sm flex items-center">
+                  <LoaderCircle className="h-4 w-4 mr-1 animate-spin" />
+                  Checking Server...
+                </div>
+              )}
+            </div>
           </CardHeader>
 
           <CardContent>

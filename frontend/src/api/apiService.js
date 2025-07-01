@@ -4,6 +4,8 @@ import axios from "axios";
 
 const apiService = axios.create({
   baseURL: import.meta.env.VITE_BACKEND_URL,
+  timeout: 30000, // 30 seconds timeout
+  timeoutErrorMessage: "Server request timed out. Please try again later.",
 });
 
 // Interceptor to add the JWT token to every request if it exists
@@ -17,6 +19,41 @@ apiService.interceptors.request.use(
     return config;
   },
   (error) => {
+    return Promise.reject(error);
+  }
+);
+
+// Response interceptor for handling common errors
+apiService.interceptors.response.use(
+  (response) => {
+    return response;
+  },
+  (error) => {
+    // Handle timeouts and server errors in a user-friendly way
+    if (error.code === "ECONNABORTED") {
+      console.error("Request timeout:", error.message);
+      return Promise.reject({
+        response: {
+          data: {
+            message:
+              "Server is taking too long to respond. Please try again later.",
+          },
+        },
+      });
+    }
+
+    if (!error.response) {
+      console.error("Network error:", error.message);
+      return Promise.reject({
+        response: {
+          data: {
+            message:
+              "Cannot connect to server. Please check your internet connection and try again.",
+          },
+        },
+      });
+    }
+
     return Promise.reject(error);
   }
 );
