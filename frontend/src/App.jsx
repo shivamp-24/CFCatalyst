@@ -12,6 +12,7 @@ import PracticeContestPage from "./pages/PracticeContestPage";
 import ProfilePage from "./pages/ProfilePage";
 import ContestHistoryPage from "./pages/ContestHistoryPage";
 import AdminDashboardPage from "./pages/AdminDashboardPage";
+import PageTracker from "./components/PageTracker";
 
 function App() {
   // Use the scroll to top hook
@@ -19,6 +20,7 @@ function App() {
 
   return (
     <>
+      <PageTracker />
       <Routes>
         {/* Public Routes */}
         <Route path="/" element={<HomePage />} />

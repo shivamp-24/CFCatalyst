@@ -30,3 +30,8 @@ export const adminApi = {
     }
   },
 };
+
+// Separate service for impressions that can be used by any component
+export const impressionApi = {
+  recordImpression: (page) => apiService.post("/api/impressions", { page }),
+};
